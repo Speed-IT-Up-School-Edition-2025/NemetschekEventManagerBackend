@@ -8,8 +8,8 @@ namespace NemetschekEventManagerBackend
 {
     public class EventDbContext : IdentityDbContext<User>
     {
-        public DbSet<Event> Events { get; set; }
         public DbSet<Submit> Submits { get; set; }
+        public DbSet<Event> Events { get; set; }
 
         public EventDbContext(DbContextOptions<EventDbContext> options) : base(options)
         {

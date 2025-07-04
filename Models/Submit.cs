@@ -6,14 +6,16 @@ namespace NemetschekEventManagerBackend.Models
 {
     public class Submit
     {
-        [Key, Column(Order = 0)]
+        [Key,]
         public int EventId { get; set; }
-        [Key, Column(Order = 1)]
-        public int UserId { get; set; }
+        [Key]
+        public string? UserId { get; set; }
         [Required]
         public DateTime? Date { get; set; }
         public IList<Submission>? Submissions { get; set; }
+        [Required]
         public DateTime? CreatedAt { get; set; }
+        [Required]
         public DateTime? UpdatedAt { get; set; }
 
         [ForeignKey("EventId")]
