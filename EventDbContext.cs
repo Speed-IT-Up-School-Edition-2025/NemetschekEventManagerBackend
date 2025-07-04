@@ -1,15 +1,15 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using NemetschekEventManagerBackend.Models;
 using NemetschekEventManagerBackend.Models.JSON;
 using System.Text.Json;
 
 namespace NemetschekEventManagerBackend
 {
-    public class EventDbContext : DbContext
+    public class EventDbContext : IdentityDbContext<User>
     {
-        public DbSet<Event> Events { get; set; }
-        public DbSet<User> Users { get; set; }
         public DbSet<Submit> Submits { get; set; }
+        public DbSet<Event> Events { get; set; }
 
         public EventDbContext(DbContextOptions<EventDbContext> options) : base(options)
         {
