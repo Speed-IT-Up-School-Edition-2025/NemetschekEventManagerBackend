@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using NemetschekEventManagerBackend;
 using NemetschekEventManagerBackend.Interfaces;
 using NemetschekEventManagerBackend.Models;
@@ -6,22 +6,20 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
-// Add services to the container.
+// Register serviceс
+builder.Services.AddScoped<IEventService, EventService>();
+
 builder.Services.AddDbContext<EventDbContext>(options =>
-options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))); 
-var app = builder.Build();
+options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 // Configure the HTTP request pipeline.
 builder.Services.AddAuthorization();
 // Add Identity services
 builder.Services.AddIdentityApiEndpoints<IdentityUser>()
     .AddEntityFrameworkStores<EventDbContext>();
 
-app.MapIdentityApi<IdentityUser>();
-
-// Register your service
-builder.Services.AddScoped<IEventService, EventService>();
-
 var app = builder.Build();
+
+app.MapIdentityApi<IdentityUser>();
 
 // Get all events
 app.MapGet("/events", (IEventService service) =>
