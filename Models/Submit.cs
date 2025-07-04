@@ -11,10 +11,10 @@ namespace NemetschekEventManagerBackend.Models
         [Key, Column(Order = 1)]
         public int UserId { get; set; }
         [Required]
-        public DateTime Date { get; set; }
+        public DateTime? Date { get; set; }
         public IList<Submission>? Submissions { get; set; }
-        public DateTime CreatedAt { get; set; }
-        public DateTime UpdatedAt { get; set; }
+        public DateTime? CreatedAt { get; set; }
+        public DateTime? UpdatedAt { get; set; }
 
         [ForeignKey("EventId")]
         public Event? Event { get; set; }
