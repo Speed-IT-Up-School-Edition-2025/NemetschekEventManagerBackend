@@ -71,6 +71,7 @@ StyleCopReport.xml
 
 #Appsetings.json files
 appsettings.*.json
+appsettings.Development.json
 appsettings.json
 !appsettings.template.json
 
