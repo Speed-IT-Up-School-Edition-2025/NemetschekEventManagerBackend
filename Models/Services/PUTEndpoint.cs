@@ -1,4 +1,5 @@
 ﻿using NemetschekEventManagerBackend.Models.JSON;
+using Microsoft.EntityFrameworkCore;
 
 namespace NemetschekEventManagerBackend.Models.Services
 {
@@ -8,7 +9,7 @@ namespace NemetschekEventManagerBackend.Models.Services
         public static void MapTodoEndpoints(this WebApplication app)
         {
             // PUT endpoint
-            app.MapPut("/api/submits/{eventId}/{userId}", async (int eventId, string userId, Submission submissionToUpdate, DbContext db) =>
+            app.MapPut("/api/submits/{eventId}/{userId}", async (int eventId, string userId, Submission submissionToUpdate, EventDbContext db) =>
             {
                 var submit = await db.Set<Submit>()
                     .Include(s => s.Submissions)
