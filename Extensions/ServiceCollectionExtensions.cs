@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using NemetschekEventManagerBackend.Interfaces;
 using NemetschekEventManagerBackend.Models;
+using Microsoft.OpenApi.Models;
 
 namespace NemetschekEventManagerBackend.Extensions
 {
@@ -31,7 +32,20 @@ namespace NemetschekEventManagerBackend.Extensions
         public static IServiceCollection AddAppSwagger(this IServiceCollection services)
         {
             services.AddEndpointsApiExplorer();
-            services.AddSwaggerGen();
+            services.AddSwaggerGen(options =>
+            {
+                options.SwaggerDoc("v1", new OpenApiInfo
+                {
+                    Title = "Nemetschek Event API",
+                    Version = "v1",
+                    Description = "This API stores and manages data for the Nemetschek Event Manager application.",
+                    Contact = new OpenApiContact
+                    {
+                        Name = "Mihail Tenev",
+                        Email = "mtenev@outlook.com",
+                    }
+                });
+            });
             return services;
         }
     }

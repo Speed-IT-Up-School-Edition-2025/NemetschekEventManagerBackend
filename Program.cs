@@ -11,11 +11,11 @@ builder.Services
 
 var app = builder.Build();
 
+// IN DEVELOPMENT STUFF HERE
 if (app.Environment.IsDevelopment())
 {
     //Swagger in DEV
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    app.ConfigureSwagger();
 }
 
 // Use authentication & authorization

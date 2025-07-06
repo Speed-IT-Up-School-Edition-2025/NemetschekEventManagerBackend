@@ -5,6 +5,18 @@ namespace NemetschekEventManagerBackend.Extensions
 {
     public static class WebApplicationExtensions
     {
+        //Swagger configuration
+        public static void ConfigureSwagger(this WebApplication app)
+        {
+            app.UseSwagger();
+            app.UseSwaggerUI(options =>
+            {
+                options.SwaggerEndpoint("/swagger/v1/swagger.json", "Nemetschek Event API V1");
+                options.DocumentTitle = "Nemetschek Event API UI";
+                options.RoutePrefix = "docs"; // Swagger UI at https://localhost:<port>/docs
+            });
+        }
+        // Map Identity API endpoints
         public static void MapEventEndpoints(this WebApplication app)
         {
             // Get all events
