@@ -6,20 +6,31 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
-// Register serviceс
+// Add services to the container.
 builder.Services.AddScoped<IEventService, EventService>();
 
 builder.Services.AddDbContext<EventDbContext>(options =>
 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-// Configure the HTTP request pipeline.
+// Add Identity services
 builder.Services.AddAuthorization();
 // Add Identity services
-builder.Services.AddIdentityApiEndpoints<IdentityUser>()
+builder.Services.AddIdentityApiEndpoints<User>()
     .AddEntityFrameworkStores<EventDbContext>();
+//Swagger UI
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-app.MapIdentityApi<IdentityUser>();
+if (app.Environment.IsDevelopment())
+{
+    //Swagger in DEV
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+// Use authentication and authorization
+app.MapIdentityApi<User>();
 
 // Get all events
 app.MapGet("/events", (IEventService service) =>
