@@ -23,8 +23,8 @@ public class EventService : IEventService
             Date = date,
             SignUpEndDate = signUpEndDate,
             Location = location,
-            CreatedAt = DateTime.Now,
-            UpdatedAt = DateTime.Now
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
         };
 
         _context.Events.Add(ev);
@@ -33,44 +33,47 @@ public class EventService : IEventService
 
     public Event? GetEventById(int eventId)
     {
-        return _context.Events
-            .Include(e => e.Fields)
-            .Include(e => e.Submissions)
-            .FirstOrDefault(e => e.Id == eventId);
+        return _context.Events.Find(eventId);
     }
 
     public List<Event> GetEvents()
     {
-        return _context.Events
-            .Include(e => e.Fields)
-            .Include(e => e.Submissions)
-            .ToList();
+        List<Event> ev = _context.Events.ToList();
+        return ev;
     }
 
     public List<Event> GetEvents(string searchName, DateTime? date, bool? activeOnly)
     {
-        var query = _context.Events
-            .Include(e => e.Fields)
-            .Include(e => e.Submissions)
-            .AsQueryable();
+        // Load events with related data from the database
+        List<Event> events = _context.Events.ToList();
 
-        if (!string.IsNullOrEmpty(searchName))
+        // Filter by event name
+        if (!string.IsNullOrWhiteSpace(searchName))
         {
-            query = query.Where(e => e.Name != null && e.Name.ToLower().Contains(searchName.ToLower()));
+            events = events
+                .Where(e => e.Name != null && e.Name.ToLower().Contains(searchName.ToLower()))
+                .ToList();
         }
 
+        // Filter by exact date
         if (date.HasValue)
         {
-            query = query.Where(e => e.Date.HasValue && e.Date.Value.Date == date.Value.Date);
+            var targetDate = date.Value.Date;
+            events = events
+                .Where(e => e.Date.HasValue && e.Date.Value.Date == targetDate)
+                .ToList();
         }
 
+        // Filter by whether the signup period is still active
         if (activeOnly == true)
         {
             var now = DateTime.UtcNow;
-            query = query.Where(e => e.SignUpEndDate.HasValue && e.SignUpEndDate.Value > now);
+            events = events
+                .Where(e => e.SignUpEndDate.HasValue && e.SignUpEndDate.Value > now)
+                .ToList();
         }
 
-        return query.ToList();
+        return events;
     }
 
     public bool RemoveById(int eventId)
