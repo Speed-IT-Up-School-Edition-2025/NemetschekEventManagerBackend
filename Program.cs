@@ -1,48 +1,28 @@
-﻿using Microsoft.EntityFrameworkCore;
-using NemetschekEventManagerBackend;
-using NemetschekEventManagerBackend.Interfaces;
 using NemetschekEventManagerBackend.Models;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using NemetschekEventManagerBackend.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
-// Register serviceс
-builder.Services.AddScoped<IEventService, EventService>();
 
-builder.Services.AddDbContext<EventDbContext>(options =>
-options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-// Configure the HTTP request pipeline.
-builder.Services.AddAuthorization();
-// Add Identity services
-builder.Services.AddIdentityApiEndpoints<IdentityUser>()
-    .AddEntityFrameworkStores<EventDbContext>();
+builder.Services
+    .AddAppServices()
+    .AddAppDbContext(builder.Configuration)
+    .AddAppIdentity()
+    .AddAppSwagger();
 
 var app = builder.Build();
 
-app.MapIdentityApi<IdentityUser>();
-
-// Get all events
-app.MapGet("/events", (IEventService service) =>
+// IN DEVELOPMENT STUFF HERE
+if (app.Environment.IsDevelopment())
 {
-    return service.GetEvents();
-});
+    //Swagger in DEV
+    app.ConfigureSwagger();
+}
 
-// Get events with filters (optional parameters)
-app.MapGet("/events/search", (
-    IEventService service,
-    string? searchName,
-    DateTime? date,
-    bool? activeOnly) =>
-{
-    return service.GetEvents(searchName!, date, activeOnly);
-});
+// Use authentication & authorization
+app.MapIdentityApi<User>();
 
-// Get event by ID
-app.MapGet("/events/{id}", (IEventService service, int id) =>
-{
-    var ev = service.GetEventById(id);
-    return ev is not null ? Results.Ok(ev) : Results.NotFound();
-});
+// API endpoints
+app.MapEventEndpoints();
 
 // Create event
 app.MapPost("/events", (IEventService service, Event newEvent) =>
@@ -59,34 +39,6 @@ app.MapPost("/events", (IEventService service, Event newEvent) =>
     );
 
     return success ? Results.Ok("Event created successfully.") : Results.BadRequest("Failed to create event.");
-});
-
-// Update event by ID (primitive params)
-app.MapPut("/events/{id}", (
-    IEventService service,
-    int id,
-    string name,
-    string description,
-    DateTime? date,
-    DateTime? signUpEndDate,
-    string location) =>
-{
-    var success = service.Update(id, name, description, date, signUpEndDate, location);
-    return success ? Results.Ok() : Results.NotFound();
-});
-
-// Update full event (via model binding)
-app.MapPut("/events", (IEventService service, Event ev) =>
-{
-    service.UpdateEvent(ev);
-    return Results.Ok();
-});
-
-// Delete event by ID
-app.MapDelete("/events/{id}", (IEventService service, int id) =>
-{
-    var success = service.RemoveById(id);
-    return success ? Results.Ok() : Results.NotFound();
 });
 
 app.Run();
