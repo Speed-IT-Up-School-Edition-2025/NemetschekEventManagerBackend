@@ -1,4 +1,4 @@
-﻿@NemetschekEventManagerBackend_HostAddress = https://localhost:44394
+@NemetschekEventManagerBackend_HostAddress = https://localhost:44394
 GET {{NemetschekEventManagerBackend_HostAddress}}/events
 
 ###
@@ -21,5 +21,3 @@ GET {{NemetschekEventManagerBackend_HostAddress}}/events
 
 @id=0
 GET {{NemetschekEventManagerBackend_HostAddress}}/events/{{id}}
-
-###
