@@ -131,7 +131,6 @@ namespace NemetschekEventManagerBackend.Extensions
                 if (submit == null)
                     return Results.NotFound();
 
-                // Return HTTP 200 OK with the found submission
                 return Results.Ok(submit);
             });
 
@@ -174,7 +173,6 @@ namespace NemetschekEventManagerBackend.Extensions
                 existingSubmission.Options = submissionToUpdate.Options;
 
                 await db.SaveChangesAsync();
-
                 return Results.NoContent();
             });
 
