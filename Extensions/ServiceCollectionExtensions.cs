@@ -1,7 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi.Models;
 using NemetschekEventManagerBackend.Interfaces;
 using NemetschekEventManagerBackend.Models;
-using Microsoft.OpenApi.Models;
+using System.Reflection;
 
 namespace NemetschekEventManagerBackend.Extensions
 {
@@ -45,6 +46,9 @@ namespace NemetschekEventManagerBackend.Extensions
                         Email = "mtenev@outlook.com",
                     }
                 });
+
+                var xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+                options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));
             });
             return services;
         }

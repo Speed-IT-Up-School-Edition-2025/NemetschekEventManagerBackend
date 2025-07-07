@@ -42,7 +42,6 @@ namespace NemetschekEventManagerBackend.Extensions
                 return ev is not null ? Results.Ok(ev) : Results.NotFound();
             });
 
-            // Create event
             app.MapPost("/events", (IEventService service, Event newEvent) =>
             {
                 if (string.IsNullOrWhiteSpace(newEvent.Name))
@@ -57,7 +56,9 @@ namespace NemetschekEventManagerBackend.Extensions
                 );
 
                 return success ? Results.Ok("Event created successfully.") : Results.BadRequest("Failed to create event.");
-            });
+            })
+            .WithSummary("Create a new event")
+            .WithDescription("Creates a new event with the provided details.");
 
             // Update event by ID (primitive params)
             app.MapPut("/events/{id}", (
