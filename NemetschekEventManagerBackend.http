@@ -1,1 +1,23 @@
-﻿
+@NemetschekEventManagerBackend_HostAddress = https://localhost:44394
+GET {{NemetschekEventManagerBackend_HostAddress}}/events
+
+###
+
+POST {{NemetschekEventManagerBackend_HostAddress}}/events
+Content-Type: application/json
+
+{
+  "name": "Hackathon",
+  "description": "Annual developer event",
+  "date": "2025-08-01T12:00:00",
+  "signUpEndDate": "2025-07-25T23:59:00",
+  "location": "Berlin"
+}
+###
+
+GET {{NemetschekEventManagerBackend_HostAddress}}/events
+
+###
+
+@id=0
+GET {{NemetschekEventManagerBackend_HostAddress}}/events/{{id}}
