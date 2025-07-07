@@ -200,5 +200,7 @@ namespace NemetschekEventManagerBackend.Extensions
             }).WithSummary("Deletes a submission")
             .WithDescription("Deletes a submission by using the unique ID");
         }
+
+
     }
 }

@@ -7,7 +7,8 @@ builder.Services
     .AddAppServices()
     .AddAppDbContext(builder.Configuration)
     .AddAppIdentity()
-    .AddAppSwagger();
+    .AddAppSwagger()
+    .SetupMailer(builder.Configuration);
 
 var app = builder.Build();
 
