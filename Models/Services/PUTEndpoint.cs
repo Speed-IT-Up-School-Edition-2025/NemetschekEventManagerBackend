@@ -1,23 +1,36 @@
-﻿namespace NemetschekEventManagerBackend.Models.Services
+﻿using NemetschekEventManagerBackend.Models.JSON;
+using Microsoft.EntityFrameworkCore;
+
+namespace NemetschekEventManagerBackend.Models.Services
 {
-    public class PUTEndpoint
+
+    public static class PUTEndpoint
     {
         public static void MapTodoEndpoints(this WebApplication app)
         {
             // PUT endpoint
-            app.MapPut("/todoitems/{id}", async (int id, Sub todoToUpdate, TodoDb db) =>
+            app.MapPut("/api/submits/{eventId}/{userId}", async (int eventId, string userId, Submission submissionToUpdate, EventDbContext db) =>
             {
-                var todo = await db.Todos.FindAsync(id);
+                var submit = await db.Set<Submit>()
+                    .Include(s => s.Submissions)
+                    .FirstOrDefaultAsync(s => s.EventId == eventId && s.UserId == userId);
 
-                if (todo is null)
+                if (submit is null)
                     return Results.NotFound();
 
-                todo.Name = todoToUpdate.Name;
-                todo.IsComplete = todoToUpdate.IsComplete;
+                // Find the submission to update by Id
+                var existingSubmission = submit.Submissions?.FirstOrDefault(s => s.Id == submissionToUpdate.Id);
+                if (existingSubmission is null)
+                    return Results.NotFound();
+
+                existingSubmission.Name = submissionToUpdate.Name;
+                existingSubmission.Options = submissionToUpdate.Options;
 
                 await db.SaveChangesAsync();
 
                 return Results.NoContent();
             });
         }
+    }
+
 }
