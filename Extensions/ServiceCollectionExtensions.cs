@@ -1,4 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using NemetschekEventManagerBackend.Interfaces;
 using NemetschekEventManagerBackend.Models;
@@ -50,6 +52,15 @@ namespace NemetschekEventManagerBackend.Extensions
                 var xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
                 options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));
             });
+            return services;
+        }
+        public static IServiceCollection SetupMailer(this IServiceCollection services, IConfiguration configuration)
+        {
+            var gmailUser = configuration["EmailSettings:GmailUser"];
+            var gmailPass = configuration["EmailSettings:GmailPass"];
+
+            services.AddTransient<IEmailSender>(_ => new GmailEmailSender(gmailUser, gmailPass));
+
             return services;
         }
     }
