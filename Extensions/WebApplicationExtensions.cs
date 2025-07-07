@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using NemetschekEventManagerBackend.Interfaces;
 using NemetschekEventManagerBackend.Models;
 using NemetschekEventManagerBackend.Models.JSON;
+using Swashbuckle.AspNetCore.Filters;
 
 namespace NemetschekEventManagerBackend.Extensions
 {
@@ -11,19 +12,21 @@ namespace NemetschekEventManagerBackend.Extensions
         //Swagger configuration
         public static void ConfigureSwagger(this WebApplication app)
         {
-            app.UseSwagger();
+            app.UseStaticFiles();
+			app.UseSwagger();
             app.UseSwaggerUI(options =>
             {
                 options.SwaggerEndpoint("/swagger/v1/swagger.json", "Nemetschek Event API V1");
-                options.DocumentTitle = "Nemetschek Event API UI";
+				options.InjectStylesheet("/css/swagger-darkTheme.css"); //setting dark theme for the swagger UI
+				options.DocumentTitle = "Nemetschek Event API UI";
                 options.RoutePrefix = "docs"; // Swagger UI at https://localhost:<port>/docs
             });
-        }
+		}
         // Map Identity API endpoints
         public static void MapEventEndpoints(this WebApplication app)
         {
             ////EVENT ENDPOINTS
-            
+
             // Get all events
             app.MapGet("/events", (IEventService service) =>
             {
@@ -118,7 +121,8 @@ namespace NemetschekEventManagerBackend.Extensions
 
                 // Return HTTP 200 OK with the list of submissions
                 return Results.Ok(submissions);
-            });
+            }).WithSummary("Get all submissions")
+            .WithDescription("Gets all submissions as it sortes them. If the submission is not found will return error 404.");
 
             // GET a single submission by eventId and userId
             // URL: /api/submits/{eventId}/{userId}
@@ -133,7 +137,8 @@ namespace NemetschekEventManagerBackend.Extensions
 
                 // Return HTTP 200 OK with the found submission
                 return Results.Ok(submit);
-            });
+            }).WithSummary("Get submission by event ID and user ID")
+            .WithDescription("Returns all the submissions that are sorted by the unique ID of the event and the user. If not found will return error 404.");
 
             // Create a new Submit
             app.MapPost("/api/submits", async ([FromBody] Submit newSubmit, EventDbContext db) =>
@@ -153,7 +158,8 @@ namespace NemetschekEventManagerBackend.Extensions
                 await db.SaveChangesAsync();
 
                 return Results.Created($"/api/submits/{newSubmit.EventId}/{newSubmit.UserId}", newSubmit);
-            });
+            }).WithSummary("Creates new submission")
+            .WithDescription("Creates new submission as it uses instance of a submission");
 
             // PUT endpoint
             app.MapPut("/api/submits/{eventId}/{userId}", async (int eventId, string userId, Submission submissionToUpdate, EventDbContext db) =>
@@ -176,7 +182,8 @@ namespace NemetschekEventManagerBackend.Extensions
                 await db.SaveChangesAsync();
 
                 return Results.NoContent();
-            });
+            }).WithSummary("Creates new submission using specific ID")
+            .WithDescription("Creates new submission using provided details such as (event ID and user ID)");
 
             app.MapDelete("/api/events/{id:int}", async (int id, EventDbContext db) =>
             {
@@ -190,7 +197,8 @@ namespace NemetschekEventManagerBackend.Extensions
                 await db.SaveChangesAsync();
 
                 return Results.NoContent();
-            });
+            }).WithSummary("Deletes a submission")
+            .WithDescription("Deletes a submission by using the unique ID");
         }
     }
 }
