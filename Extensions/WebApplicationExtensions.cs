@@ -23,7 +23,9 @@ namespace NemetschekEventManagerBackend.Extensions
             app.MapGet("/events", (IEventService service) =>
             {
                 return service.GetEvents();
-            });
+            })
+                .WithSummary("Get all events")
+                .WithDescription("Fetches all events from the database without any filters.");
 
             // Get events with filters (optional parameters)
             app.MapGet("/events/search", (
@@ -33,14 +35,18 @@ namespace NemetschekEventManagerBackend.Extensions
                 bool? activeOnly) =>
             {
                 return service.GetEvents(searchName!, date, activeOnly);
-            });
+            })
+                .WithSummary("Search for events")
+                .WithDescription("Fetches events based on optional filters like event name, date, and whether the event is still active.");
 
             // Get event by ID
             app.MapGet("/events/{id}", (IEventService service, int id) =>
             {
                 var ev = service.GetEventById(id);
                 return ev is not null ? Results.Ok(ev) : Results.NotFound();
-            });
+            })
+                .WithSummary("Get event by ID")
+                .WithDescription("Fetches an event by its unique identifier (ID). If the event doesn't exist, returns a 404 error.");
 
             app.MapPost("/events", (IEventService service, Event newEvent) =>
             {
@@ -57,8 +63,8 @@ namespace NemetschekEventManagerBackend.Extensions
 
                 return success ? Results.Ok("Event created successfully.") : Results.BadRequest("Failed to create event.");
             })
-            .WithSummary("Create a new event")
-            .WithDescription("Creates a new event with the provided details.");
+                .WithSummary("Create a new event")
+                .WithDescription("Creates a new event with the provided details.");
 
             // Update event by ID (primitive params)
             app.MapPut("/events/{id}", (
@@ -72,22 +78,28 @@ namespace NemetschekEventManagerBackend.Extensions
             {
                 var success = service.Update(id, name, description, date, signUpEndDate, location);
                 return success ? Results.Ok() : Results.NotFound();
-            });
+            })
+                .WithSummary("Update event by ID")
+                .WithDescription("Updates an existing event using its ID and provided details. Returns a 404 error if the event is not found.");
 
             // Update full event (via model binding)
             app.MapPut("/events", (IEventService service, Event ev) =>
             {
                 service.UpdateEvent(ev);
                 return Results.Ok();
-            });
+            })
+                .WithSummary("Update full event")
+                .WithDescription("Updates an entire event object using model binding, replacing the existing event details.");
+
 
             // Delete event by ID
             app.MapDelete("/events/{id}", (IEventService service, int id) =>
             {
                 var success = service.RemoveById(id);
                 return success ? Results.Ok() : Results.NotFound();
-            });
-
+            })
+                .WithSummary("Delete event by ID")
+                .WithDescription("Deletes an event using its unique ID. If the event is not found, returns a 404 error.");
         }
     }
 }
