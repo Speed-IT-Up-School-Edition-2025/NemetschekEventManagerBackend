@@ -1,10 +1,43 @@
-﻿using NemetschekEventManagerBackend.Interfaces;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.Data;
+using NemetschekEventManagerBackend.Interfaces;
 using NemetschekEventManagerBackend.Models;
+using NemetschekEventManagerBackend.Seeding;
+using System.Runtime.CompilerServices;
 
 namespace NemetschekEventManagerBackend.Extensions
 {
     public static class WebApplicationExtensions
     {
+        public static void ConfigureRoleBasedAuthorization(this WebApplication app)
+        {
+            // Assign "User" role to the account directly after registration
+            app.MapPost("/register", async (
+                UserManager<User> userManager,
+                RegisterRequest request) =>
+            {
+                var user = new User
+                {
+                    UserName = request.Email,
+                    Email = request.Email
+                };
+
+                var result = await userManager.CreateAsync(user, request.Password);
+
+                if (!result.Succeeded)
+                    return Results.BadRequest(result.Errors);
+
+                await userManager.AddToRoleAsync(user, "User");
+
+                return Results.Ok();
+            })
+            .AllowAnonymous();
+
+            app.UseAuthentication();
+            app.UseAuthorization();
+        }
+
         //Swagger configuration
         public static void ConfigureSwagger(this WebApplication app)
         {

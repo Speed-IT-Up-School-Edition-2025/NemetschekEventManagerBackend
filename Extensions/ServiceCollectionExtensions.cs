@@ -1,7 +1,11 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using NemetschekEventManagerBackend.Interfaces;
 using NemetschekEventManagerBackend.Models;
+using NemetschekEventManagerBackend.Seeding;
 using System.Reflection;
 
 namespace NemetschekEventManagerBackend.Extensions
@@ -24,9 +28,23 @@ namespace NemetschekEventManagerBackend.Extensions
         // Add Identity services to the IServiceCollection
         public static IServiceCollection AddAppIdentity(this IServiceCollection services)
         {
-            services.AddIdentityApiEndpoints<User>()
-                    .AddEntityFrameworkStores<EventDbContext>();
-            services.AddAuthorization();
+            services.AddIdentity<User, IdentityRole>()
+                .AddEntityFrameworkStores<EventDbContext>()
+                .AddDefaultTokenProviders();
+
+
+            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
+            services.AddAuthorization(options =>
+            {
+                options.FallbackPolicy = new AuthorizationPolicyBuilder()
+                .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme)
+                .RequireAuthenticatedUser()
+                .Build();
+            });
+
+            services.AddScoped<UserManager<User>>();
+            services.AddScoped<RoleManager<IdentityRole>>();
+
             return services;
         }
         // Add Swagger services to the IServiceCollection

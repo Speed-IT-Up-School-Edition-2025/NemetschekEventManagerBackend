@@ -1,5 +1,13 @@
-using NemetschekEventManagerBackend.Models;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.Data;
+using Microsoft.Extensions.DependencyInjection;
+using NemetschekEventManagerBackend;
 using NemetschekEventManagerBackend.Extensions;
+using NemetschekEventManagerBackend.Models;
+using NemetschekEventManagerBackend.Seeding;
+using System;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,7 +29,10 @@ if (app.Environment.IsDevelopment())
 // Use authentication & authorization
 app.MapIdentityApi<User>();
 
+app.ConfigureRoleBasedAuthorization();
+
 // API endpoints
 app.MapEventEndpoints();
+
 
 app.Run();
