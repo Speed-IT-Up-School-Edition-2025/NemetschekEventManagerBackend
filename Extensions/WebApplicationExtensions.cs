@@ -1,5 +1,8 @@
-﻿using NemetschekEventManagerBackend.Interfaces;
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using NemetschekEventManagerBackend.Interfaces;
 using NemetschekEventManagerBackend.Models;
+using NemetschekEventManagerBackend.Models.JSON;
 
 namespace NemetschekEventManagerBackend.Extensions
 {
@@ -19,6 +22,8 @@ namespace NemetschekEventManagerBackend.Extensions
         // Map Identity API endpoints
         public static void MapEventEndpoints(this WebApplication app)
         {
+            ////EVENT ENDPOINTS
+            
             // Get all events
             app.MapGet("/events", (IEventService service) =>
             {
@@ -100,6 +105,92 @@ namespace NemetschekEventManagerBackend.Extensions
             })
                 .WithSummary("Delete event by ID")
                 .WithDescription("Deletes an event using its unique ID. If the event is not found, returns a 404 error.");
+
+            //// SUBMIT ENDPOINTS
+
+            // GET all submissions endpoint
+
+            // returns a list of all Submit records in the database
+            app.MapGet("/api/submits", async (EventDbContext db) =>
+            {
+                // Fetch all submissions from the database asynchronously
+                var submissions = await db.Submits.ToListAsync();
+
+                // Return HTTP 200 OK with the list of submissions
+                return Results.Ok(submissions);
+            });
+
+            // GET a single submission by eventId and userId
+            // URL: /api/submits/{eventId}/{userId}
+            app.MapGet("/api/submits/{eventId}/{userId}", async (int eventId, string userId, EventDbContext db) =>
+            {
+                // Find the submit entry by composite key (EventId, UserId)
+                var submit = await db.Submits.FindAsync(eventId, userId);
+
+                // If not found, return 404 Not Found
+                if (submit == null)
+                    return Results.NotFound();
+
+                // Return HTTP 200 OK with the found submission
+                return Results.Ok(submit);
+            });
+
+            // Create a new Submit
+            app.MapPost("/api/submits", async ([FromBody] Submit newSubmit, EventDbContext db) =>
+            {
+                if (newSubmit is null)
+                    return Results.BadRequest("Invalid submit data.");
+
+                // check if it already exists 
+                var exists = await db.Set<Submit>().AnyAsync(s =>
+                    s.EventId == newSubmit.EventId && s.UserId == newSubmit.UserId);
+
+                if (exists)
+                    return Results.Conflict("A submission for this user and event already exists.");
+
+                // Add to DB
+                db.Submits.Add(newSubmit);
+                await db.SaveChangesAsync();
+
+                return Results.Created($"/api/submits/{newSubmit.EventId}/{newSubmit.UserId}", newSubmit);
+            });
+
+            // PUT endpoint
+            app.MapPut("/api/submits/{eventId}/{userId}", async (int eventId, string userId, Submission submissionToUpdate, EventDbContext db) =>
+            {
+                var submit = await db.Set<Submit>()
+                    .Include(s => s.Submissions)
+                    .FirstOrDefaultAsync(s => s.EventId == eventId && s.UserId == userId);
+
+                if (submit is null)
+                    return Results.NotFound();
+
+                // Find the submission to update by Id
+                var existingSubmission = submit.Submissions?.FirstOrDefault(s => s.Id == submissionToUpdate.Id);
+                if (existingSubmission is null)
+                    return Results.NotFound();
+
+                existingSubmission.Name = submissionToUpdate.Name;
+                existingSubmission.Options = submissionToUpdate.Options;
+
+                await db.SaveChangesAsync();
+
+                return Results.NoContent();
+            });
+
+            app.MapDelete("/api/events/{id:int}", async (int id, EventDbContext db) =>
+            {
+                var ev = await db.Events.FindAsync(id);
+                if (ev == null)
+                {
+                    return Results.NotFound();
+                }
+
+                db.Events.Remove(ev);
+                await db.SaveChangesAsync();
+
+                return Results.NoContent();
+            });
         }
     }
 }
