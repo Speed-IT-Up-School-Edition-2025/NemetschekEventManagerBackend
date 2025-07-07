@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using NemetschekEventManagerBackend.Interfaces;
 using NemetschekEventManagerBackend.Models;
 using NemetschekEventManagerBackend.Models.JSON;
+using System.Security.Claims;
 
 namespace NemetschekEventManagerBackend.Extensions
 {
@@ -121,26 +122,43 @@ namespace NemetschekEventManagerBackend.Extensions
             });
 
             // GET a single submission by eventId and userId
-            // URL: /api/submits/{eventId}/{userId}
-            app.MapGet("/api/submits/{eventId}/{userId}", async (int eventId, string userId, EventDbContext db) =>
+            // Get submit for authenticated user
+            app.MapGet("/submits/{eventId}", async (int eventId, EventDbContext db, ClaimsPrincipal user) =>
             {
-                // Find the submit entry by composite key (EventId, UserId)
-                var submit = await db.Submits.FindAsync(eventId, userId);
+                // Get authenticated user ID
+                var authenticatedUserId = user.FindFirstValue(ClaimTypes.NameIdentifier)
+                                          ?? user.FindFirstValue("sub");
 
-                // If not found, return 404 Not Found
+                if (string.IsNullOrEmpty(authenticatedUserId))
+                    return Results.Unauthorized();
+
+                // Find submit by composite key (EventId, UserId)
+                var submit = await db.Submits.FindAsync(eventId, authenticatedUserId);
+
                 if (submit == null)
                     return Results.NotFound();
 
                 return Results.Ok(submit);
-            });
+            })
+            .RequireAuthorization();
 
-            // Create a new Submit
-            app.MapPost("/api/submits", async ([FromBody] Submit newSubmit, EventDbContext db) =>
+            // Create new submit for authenticated user
+            app.MapPost("/submits", async ([FromBody] Submit newSubmit, EventDbContext db, ClaimsPrincipal user) =>
             {
                 if (newSubmit is null)
                     return Results.BadRequest("Invalid submit data.");
 
-                // check if it already exists 
+                // Get authenticated user ID
+                var authenticatedUserId = user.FindFirstValue(ClaimTypes.NameIdentifier)
+                                          ?? user.FindFirstValue("sub");
+
+                if (string.IsNullOrEmpty(authenticatedUserId))
+                    return Results.Unauthorized();
+
+                // Set user ID from authentication token
+                newSubmit.UserId = authenticatedUserId;
+
+                // Check if submit already exists
                 var exists = await db.Set<Submit>().AnyAsync(s =>
                     s.EventId == newSubmit.EventId && s.UserId == newSubmit.UserId);
 
@@ -151,32 +169,77 @@ namespace NemetschekEventManagerBackend.Extensions
                 db.Submits.Add(newSubmit);
                 await db.SaveChangesAsync();
 
-                return Results.Created($"/api/submits/{newSubmit.EventId}/{newSubmit.UserId}", newSubmit);
-            });
+                return Results.Created($"/submits/{newSubmit.EventId}", newSubmit);
+            })
+            .RequireAuthorization();
 
             // PUT endpoint
-            app.MapPut("/api/submits/{eventId}/{userId}", async (int eventId, string userId, Submission submissionToUpdate, EventDbContext db) =>
+            app.MapPut("submits/{eventId}", async (int eventId, Submission submissionToUpdate, EventDbContext db, ClaimsPrincipal user) =>
             {
+                // Enhanced authentication check
+                if (user?.Identity?.IsAuthenticated != true)
+                {
+                    return Results.Unauthorized();
+                }
+
+                // Get authenticated user ID from claims
+                var authenticatedUserId = user.FindFirstValue(ClaimTypes.NameIdentifier)
+                                          ?? user.FindFirstValue("sub"); // Fallback for different claim types
+
+                if (string.IsNullOrEmpty(authenticatedUserId))
+                {
+                    return Results.Unauthorized();
+                }
+
+                // Get the submit entity by eventId and authenticated userId
                 var submit = await db.Set<Submit>()
-                    .Include(s => s.Submissions)
-                    .FirstOrDefaultAsync(s => s.EventId == eventId && s.UserId == userId);
+                    .FirstOrDefaultAsync(s => s.EventId == eventId && s.UserId == authenticatedUserId);
 
                 if (submit is null)
-                    return Results.NotFound();
+                {
+                    return Results.NotFound("Submit record not found");
+                }
 
-                // Find the submission to update by Id
-                var existingSubmission = submit.Submissions?.FirstOrDefault(s => s.Id == submissionToUpdate.Id);
+                if (submit.Submissions is null)
+                {
+                    return Results.Problem("No submissions available");
+                }
+
+                // Find the submission by Id
+                var existingSubmission = submit.Submissions.FirstOrDefault(s => s.Id == submissionToUpdate.Id);
                 if (existingSubmission is null)
-                    return Results.NotFound();
+                {
+                    return Results.NotFound("Submission not found");
+                }
 
-                existingSubmission.Name = submissionToUpdate.Name;
-                existingSubmission.Options = submissionToUpdate.Options;
+                // Update only non-null properties
+                if (submissionToUpdate.Name != null)
+                {
+                    existingSubmission.Name = submissionToUpdate.Name;
+                }
 
-                await db.SaveChangesAsync();
-                return Results.NoContent();
-            });
+                if (submissionToUpdate.Options != null)
+                {
+                    existingSubmission.Options = submissionToUpdate.Options;
+                }
 
-            app.MapDelete("/api/events/{id:int}", async (int id, EventDbContext db) =>
+                // Mark the JSON property as modified
+                db.Entry(submit).Property(s => s.Submissions).IsModified = true;
+
+                try
+                {
+                    await db.SaveChangesAsync();
+                    return Results.NoContent();
+                }
+                catch (DbUpdateException ex)
+                {
+                    // Log the exception details here
+                    return Results.Problem("Database update failed");
+                }
+            })
+                .RequireAuthorization();
+
+            app.MapDelete("/submits/{id:int}", async (int id, EventDbContext db) =>
             {
                 var ev = await db.Events.FindAsync(id);
                 if (ev == null)
