@@ -1,5 +1,4 @@
-﻿@NemetschekEventManagerBackend_HostAddress = https://localhost:7246
-
+﻿@NemetschekEventManagerBackend_HostAddress = https://localhost:44394
 GET {{NemetschekEventManagerBackend_HostAddress}}/events
 
 ###
@@ -14,4 +13,13 @@ Content-Type: application/json
   "signUpEndDate": "2025-07-25T23:59:00",
   "location": "Berlin"
 }
+###
+
+GET {{NemetschekEventManagerBackend_HostAddress}}/events
+
+###
+
+@id=0
+GET {{NemetschekEventManagerBackend_HostAddress}}/events/{{id}}
+
 ###

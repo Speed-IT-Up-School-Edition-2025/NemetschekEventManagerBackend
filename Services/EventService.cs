@@ -23,8 +23,8 @@ public class EventService : IEventService
             Date = date,
             SignUpEndDate = signUpEndDate,
             Location = location,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.Now,
+            UpdatedAt = DateTime.Now
         };
 
         _context.Events.Add(ev);

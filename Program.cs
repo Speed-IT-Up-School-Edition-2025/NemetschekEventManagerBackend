@@ -45,22 +45,20 @@ app.MapGet("/events/{id}", (IEventService service, int id) =>
 });
 
 // Create event
-app.MapPost("/events", async (IEventService service, HttpContext http) =>
+app.MapPost("/events", (IEventService service, Event newEvent) =>
 {
-    var newEvent = await http.Request.ReadFromJsonAsync<Event>();
-
-    if (newEvent == null || string.IsNullOrWhiteSpace(newEvent.Name))
-        return Results.BadRequest("Invalid event data.");
+    if (string.IsNullOrWhiteSpace(newEvent.Name))
+        return Results.BadRequest("Event name is required.");
 
     var success = service.Create(
         newEvent.Name,
-        newEvent.Description!,
+        newEvent.Description ?? string.Empty,
         newEvent.Date,
         newEvent.SignUpEndDate,
-        newEvent.Location!
+        newEvent.Location ?? string.Empty
     );
 
-    return success ? Results.Ok() : Results.BadRequest("Failed to create event");
+    return success ? Results.Ok("Event created successfully.") : Results.BadRequest("Failed to create event.");
 });
 
 // Update event by ID (primitive params)
