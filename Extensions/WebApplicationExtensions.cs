@@ -2,13 +2,14 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using NemetschekEventManagerBackend.Interfaces;
 using NemetschekEventManagerBackend.Models;
 using NemetschekEventManagerBackend.Models.JSON;
 using Swashbuckle.AspNetCore.Filters;
 using System.Data;
-using System.Security.Claims;
 using System.Linq;
+using System.Security.Claims;
 
 namespace NemetschekEventManagerBackend.Extensions
 {
@@ -18,15 +19,15 @@ namespace NemetschekEventManagerBackend.Extensions
         public static void ConfigureSwagger(this WebApplication app)
         {
             app.UseStaticFiles();
-			app.UseSwagger();
+            app.UseSwagger();
             app.UseSwaggerUI(options =>
             {
                 options.SwaggerEndpoint("/swagger/v1/swagger.json", "Nemetschek Event API V1");
-				options.InjectStylesheet("/css/swagger-darkTheme.css"); //setting dark theme for the swagger UI
-				options.DocumentTitle = "Nemetschek Event API UI";
+                options.InjectStylesheet("/css/swagger-darkTheme.css"); //setting dark theme for the swagger UI
+                options.DocumentTitle = "Nemetschek Event API UI";
                 options.RoutePrefix = "docs"; // Swagger UI at https://localhost:<port>/docs
             });
-		}
+        }
         // Map Identity API endpoints
         public static void MapEventEndpoints(this WebApplication app)
         {
@@ -343,7 +344,7 @@ namespace NemetschekEventManagerBackend.Extensions
             //enpoint to get all users ID and emails
             app.MapGet("/users/info",
             [Authorize(Roles = "Administrator")]
-            async(UserManager<User> manager) =>
+            async (UserManager<User> manager) =>
             {
                 try
                 {
@@ -355,7 +356,7 @@ namespace NemetschekEventManagerBackend.Extensions
                         Email = info.Email,
                         CreatedAT = info.CreatedAt,
                         UpdatedAT = info.UpdatedAt,
-					}).ToList();
+                    }).ToList();
 
                     return Results.Ok(userInfos);
                 }
@@ -383,7 +384,7 @@ namespace NemetschekEventManagerBackend.Extensions
                     }
 
                     await userManager.RemoveFromRoleAsync(user_to_admin, "User"); // Remove default role if exists
-					var result = await userManager.AddToRoleAsync(user_to_admin, "Administrator");
+                    var result = await userManager.AddToRoleAsync(user_to_admin, "Administrator");
 
                     if (result.Succeeded)
                     {
@@ -391,16 +392,16 @@ namespace NemetschekEventManagerBackend.Extensions
                     }
                     else
                     {
-						await userManager.AddToRoleAsync(user_to_admin, "User"); // Ensure the user has a default role
-						return Results.BadRequest("Failed to make user an administrator.");
-					}
+                        await userManager.AddToRoleAsync(user_to_admin, "User"); // Ensure the user has a default role
+                        return Results.BadRequest("Failed to make user an administrator.");
+                    }
 
                 }
                 catch (Exception ex)
                 {
                     return Results.Problem("Error message: " + ex);
                 }
-			}).WithSummary("Admin adds new admins")
+            }).WithSummary("Admin adds new admins")
             .WithDescription("Only Amins can add new admins as it selects them by ID");
 
             //endpoint-admin removes other admins from administrators
@@ -415,22 +416,105 @@ namespace NemetschekEventManagerBackend.Extensions
                 if (user_to_remove == null)
                 {
                     return Results.NotFound("User not found");
-				}
+                }
 
-				var result = await manager.RemoveFromRoleAsync(user_to_remove!, "Administrator");
+                var result = await manager.RemoveFromRoleAsync(user_to_remove!, "Administrator");
 
                 if (result.Succeeded)
                 {
                     await manager.AddToRoleAsync(user_to_remove!, "User"); // Ensure the user has a default role
-					return Results.Ok("User has been removed from administrators.");
+                    return Results.Ok("User has been removed from administrators.");
                 }
                 else
                 {
                     await manager.AddToRoleAsync(user_to_remove!, "Aministrator"); // Ensure the user has his role back
-					return Results.BadRequest("Failed to remove user from administrators.");
-				}
-			}).WithSummary("Removes admin")
+                    return Results.BadRequest("Failed to remove user from administrators.");
+                }
+            }).WithSummary("Removes admin")
             .WithDescription("Only admins remove other admins which are selected by ID as once the admin role is removed the user gets the role 'user'");
-		}
-	}
+
+            app.MapDelete("/submits/remove-user-submits/{UserId}", 
+            async (HttpContext httpContext,
+            UserManager<User> userManager,
+            RoleManager<IdentityRole> roleManager,
+            EventDbContext dbContext,
+            string UserId) =>
+            {
+                var principal = httpContext.User;
+
+                // Authentication check
+                if (!principal.Identity?.IsAuthenticated ?? true)
+                {
+                    return Results.Unauthorized();
+                }
+
+                // Get current admin ID from claims
+                var adminId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (adminId == null)
+                    return Results.Unauthorized();
+
+                // Verify admin role
+                var adminUser = await userManager.FindByIdAsync(adminId);
+                if (adminUser == null)
+                    return Results.NotFound("Admin user not found");
+
+                var isAdmin = await userManager.IsInRoleAsync(adminUser, "Administrator");
+                if (!isAdmin)
+                    return Results.Forbid();
+
+                // Find target user
+                var targetUser = await userManager.FindByIdAsync(UserId);
+                if (targetUser == null)
+                    return Results.NotFound($"User with ID {UserId} not found");
+
+                // Get and delete submissions
+                var submissions = await dbContext.Submits
+                    .Where(s => s.UserId == UserId)
+                    .ToListAsync();
+
+                if (!submissions.Any())
+                {
+                    return Results.Ok(new
+                    {
+                        Message = $"User {UserId} has no submissions to delete",
+                        DeletedCount = 0,
+                        Timestamp = DateTime.UtcNow
+                    });
+                }
+
+                // Perform deletion
+                try
+                {
+                    dbContext.Submits.RemoveRange(submissions);
+                    var deletedCount = await dbContext.SaveChangesAsync();
+
+                    // Update admin's last action timestamp
+                    adminUser.UpdatedAt = DateTime.UtcNow;
+                    await userManager.UpdateAsync(adminUser);
+
+                    return Results.Ok(new
+                    {
+                        Message = $"Deleted {deletedCount} submissions",
+                        UserId = UserId,
+                        DeletedCount = deletedCount,
+                        Timestamp = DateTime.UtcNow,
+                        AdminId = adminId
+                    });
+                }
+                catch (Exception ex)
+                {
+                    // Log error
+                    return Results.Problem(new ProblemDetails
+                    {
+                        Title = "Deletion Error",
+                        Detail = $"Failed to delete submissions: {ex.Message}",
+                        Status = StatusCodes.Status500InternalServerError
+                    });
+                }
+            })
+            .WithSummary("Delete all user submissions")
+            .WithDescription("Administrator endpoint to remove all submissions for a specific user.Requires Administrator role." +
+            "Updates the admin's UpdatedAt timestamp.");
+        }
+    }
 }
