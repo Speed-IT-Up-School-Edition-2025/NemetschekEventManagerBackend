@@ -199,8 +199,28 @@ namespace NemetschekEventManagerBackend.Extensions
                 return Results.NoContent();
             }).WithSummary("Deletes a submission")
             .WithDescription("Deletes a submission by using the unique ID");
+
+            // User me
+
+            app.MapGet("/user/me", (HttpContext httpContext) =>
+            {
+                var user = httpContext.User;
+
+                if (!user.Identity?.IsAuthenticated ?? true)
+                {
+                    return Results.Unauthorized();
+                }
+
+                var userId = user.FindFirst("oid")?.Value;
+                var email = user.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+
+                return Results.Ok(new
+                {
+                    UserId = userId,
+                    Email = email
+                });
+            });
+
         }
-
-
     }
 }
