@@ -1,9 +1,5 @@
-<<<<<<< HEAD
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.HttpResults;
-=======
-using Microsoft.AspNetCore.Authorization;
->>>>>>> fdeec469988697ad39212b9a65f1e16c8db38325
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
