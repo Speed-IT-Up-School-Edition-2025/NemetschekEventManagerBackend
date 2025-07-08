@@ -41,8 +41,9 @@ namespace NemetschekEventManagerBackend.Extensions
                 .WithDescription("Fetches all events from the database without any filters.");
 
             // Get events with filters (optional parameters)
-            app.MapGet("/events/search", (
-                IEventService service,
+            app.MapGet("/events/search",
+            [Authorize]
+            (IEventService service,
                 string? searchName,
                 DateTime? date,
                 bool? activeOnly) =>
@@ -53,7 +54,9 @@ namespace NemetschekEventManagerBackend.Extensions
                 .WithDescription("Fetches events based on optional filters like event name, date, and whether the event is still active.");
 
             // Get event by ID
-            app.MapGet("/events/{id}", (IEventService service, int id) =>
+            app.MapGet("/events/{id}",
+            [Authorize]
+            (IEventService service, int id) =>
             {
                 var ev = service.GetEventById(id);
                 return ev is not null ? Results.Ok(ev) : Results.NotFound();
@@ -61,7 +64,9 @@ namespace NemetschekEventManagerBackend.Extensions
                 .WithSummary("Get event by ID")
                 .WithDescription("Fetches an event by its unique identifier (ID). If the event doesn't exist, returns a 404 error.");
 
-            app.MapPost("/events", (IEventService service, Event newEvent) =>
+            app.MapPost("/events",
+            [Authorize(Roles = "Administrator")]
+            (IEventService service, Event newEvent) =>
             {
                 if (string.IsNullOrWhiteSpace(newEvent.Name))
                     return Results.BadRequest("Event name is required.");
@@ -80,7 +85,9 @@ namespace NemetschekEventManagerBackend.Extensions
                 .WithDescription("Creates a new event with the provided details.");
 
             // Update event by ID (primitive params)
-            app.MapPut("/events/{id}", (
+            app.MapPut("/events/{id}",
+            [Authorize(Roles = "Administrator")]
+            (
                 IEventService service,
                 int id,
                 string name,
@@ -96,7 +103,9 @@ namespace NemetschekEventManagerBackend.Extensions
                 .WithDescription("Updates an existing event using its ID and provided details. Returns a 404 error if the event is not found.");
 
             // Update full event (via model binding)
-            app.MapPut("/events", (IEventService service, Event ev) =>
+            app.MapPut("/events",
+            [Authorize(Roles = "Administrator")]
+            (IEventService service, Event ev) =>
             {
                 service.UpdateEvent(ev);
                 return Results.Ok();
@@ -106,7 +115,9 @@ namespace NemetschekEventManagerBackend.Extensions
 
 
             // Delete event by ID
-            app.MapDelete("/events/{id}", (IEventService service, int id) =>
+            app.MapDelete("/events/{id}",
+            [Authorize(Roles = "Administrator")]
+            (IEventService service, int id) =>
             {
                 var success = service.RemoveById(id);
                 return success ? Results.Ok() : Results.NotFound();
@@ -118,14 +129,13 @@ namespace NemetschekEventManagerBackend.Extensions
 
             // GET a single submission by eventId and userId
             // Get submit for authenticated user
-            app.MapGet("/submits/{eventId}", async (int eventId, EventDbContext db, ClaimsPrincipal user) =>
+            app.MapGet("/submits/{eventId}",
+            [Authorize]
+            async (int eventId, EventDbContext db, ClaimsPrincipal user) =>
             {
                 // Get authenticated user ID
                 var authenticatedUserId = user.FindFirstValue(ClaimTypes.NameIdentifier)
                                           ?? user.FindFirstValue("sub");
-
-                if (string.IsNullOrEmpty(authenticatedUserId))
-                    return Results.Unauthorized();
 
                 // Find submit by composite key (EventId, UserId)
                 var submit = await db.Submits.FindAsync(eventId, authenticatedUserId);
@@ -137,11 +147,12 @@ namespace NemetschekEventManagerBackend.Extensions
             })
                 .WithSummary("Get submit for authenticated user")
                 .WithDescription("Fetches a submission for the authenticated user by event ID." +
-                " Returns 404 if the submission does not exist.")
-                .RequireAuthorization();
-          
+                " Returns 404 if the submission does not exist.");
+
             // Create new submit for authenticated user
-            app.MapPost("/submits", async ([FromBody] Submit newSubmit, EventDbContext db, ClaimsPrincipal user) =>
+            app.MapPost("/submits",
+            [Authorize]
+            async ([FromBody] Submit newSubmit, EventDbContext db, ClaimsPrincipal user) =>
             {
                 if (newSubmit is null)
                     return Results.BadRequest("Invalid submit data.");
@@ -149,9 +160,6 @@ namespace NemetschekEventManagerBackend.Extensions
                 // Get authenticated user ID
                 var authenticatedUserId = user.FindFirstValue(ClaimTypes.NameIdentifier)
                                           ?? user.FindFirstValue("sub");
-
-                if (string.IsNullOrEmpty(authenticatedUserId))
-                    return Results.Unauthorized();
 
                 // Set user ID from authentication token
                 newSubmit.UserId = authenticatedUserId;
@@ -166,31 +174,21 @@ namespace NemetschekEventManagerBackend.Extensions
                 // Add to DB
                 db.Submits.Add(newSubmit);
                 await db.SaveChangesAsync();
-              
+
                 return Results.Created($"/submits/{newSubmit.EventId}", newSubmit);
             })
                 .WithSummary("Create new submit for authenticated user")
                 .WithDescription("Creates a new submit record for the authenticated user." +
-                " Returns 409 if a submission already exists for the user and event.")
-                .RequireAuthorization();
+                " Returns 409 if a submission already exists for the user and event."); ;
 
             // PUT endpoint
-            app.MapPut("submits/{eventId}", async (int eventId, Submission submissionToUpdate, EventDbContext db, ClaimsPrincipal user) =>
+            app.MapPut("submits/{eventId}",
+            [Authorize]
+            async (int eventId, Submission submissionToUpdate, EventDbContext db, ClaimsPrincipal user) =>
             {
-                // Enhanced authentication check
-                if (user?.Identity?.IsAuthenticated != true)
-                {
-                    return Results.Unauthorized();
-                }
-
                 // Get authenticated user ID from claims
                 var authenticatedUserId = user.FindFirstValue(ClaimTypes.NameIdentifier)
-                                          ?? user.FindFirstValue("sub"); // Fallback for different claim types
-
-                if (string.IsNullOrEmpty(authenticatedUserId))
-                {
-                    return Results.Unauthorized();
-                }
+                                          ?? user.FindFirstValue("sub"); 
 
                 // Get the submit entity by eventId and authenticated userId
                 var submit = await db.Set<Submit>()
@@ -240,35 +238,25 @@ namespace NemetschekEventManagerBackend.Extensions
             })
                 .WithSummary("Update submission for authenticated user")
                 .WithDescription("Updates a specific submission for the authenticated user in the specified event." +
-                "Returns 404 if the submission or submit record is not found.")
-                .RequireAuthorization();
+                "Returns 404 if the submission or submit record is not found.");
 
-            app.MapDelete("/submits/{id:int}", async (int id, EventDbContext db, ClaimsPrincipal user) =>
+            app.MapDelete("/submits/{id}",
+            [Authorize]
+            async (int id, EventDbContext db, ClaimsPrincipal user) =>
             {
-                // Authentication check
-                if (user?.Identity?.IsAuthenticated != true)
-                    return Results.Unauthorized();
-
                 // Get authenticated user ID
                 var authenticatedUserId = user.FindFirstValue(ClaimTypes.NameIdentifier)
                                           ?? user.FindFirstValue("sub");
 
-                if (string.IsNullOrEmpty(authenticatedUserId))
-                    return Results.Unauthorized();
-
                 // Find the event
-                var ev = await db.Events.FindAsync(id);
-                if (ev == null)
+                var sub = await db.Submits.FindAsync(id);
+                if (sub == null)
                     return Results.NotFound("Event not found");
-
-                // Authorization - Only allow admins to delete events
-                if (!user.IsInRole("Admin"))
-                    return Results.Forbid();
 
                 // Perform deletion
                 try
                 {
-                    db.Events.Remove(ev);
+                    db.Submits.Remove(sub);
                     await db.SaveChangesAsync();
                     return Results.NoContent();
                 }
@@ -280,32 +268,9 @@ namespace NemetschekEventManagerBackend.Extensions
             })
                 .WithSummary("Delete submits by ID")
                 .WithDescription("Deletes a submission by its ID for the authenticated user." +
-                " Returns 404 if the submission is not found.")
-                .RequireAuthorization();
+                " Returns 404 if the submission is not found.");
 
-            // User me
-
-            /*
-
-            app.MapGet("/user/me", (HttpContext httpContext) =>
-            {
-                var user = httpContext.User;
-
-                if (!user.Identity?.IsAuthenticated ?? true)
-                {
-                    return Results.Unauthorized();
-                }
-
-                var userId = user.FindFirst("oid")?.Value;
-                var email = user.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
-
-                return Results.Ok(new
-                {
-                    UserId = userId,
-                    Email = email
-                });
-            });
-            */
+            // Get user info
 
             app.MapGet("/user/me", async (
             HttpContext httpContext,
@@ -319,7 +284,6 @@ namespace NemetschekEventManagerBackend.Extensions
                     return Results.Unauthorized();
                 }
 
-                // Get the user ID from JWT (use ClaimTypes.NameIdentifier if you're using standard JWT claims)
                 var userId = principal.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
                 var email = principal.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
 

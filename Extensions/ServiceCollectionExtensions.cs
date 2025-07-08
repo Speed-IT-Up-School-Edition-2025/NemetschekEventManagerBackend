@@ -36,23 +36,6 @@ namespace NemetschekEventManagerBackend.Extensions
 
             services.AddIdentityApiEndpoints<User>();
 
-            /*
-            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-            .AddJwtBearer(options =>
-            {
-                options.TokenValidationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuer = true,
-                    ValidateAudience = true,
-                    ValidateLifetime = true,
-                    ValidateIssuerSigningKey = true,
-                    ValidIssuer = "your-issuer",
-                    ValidAudience = "your-audience",
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("your-secret-key"))
-                };
-            });
-            */
-
             services.AddAuthorization();
             return services;
         }
@@ -66,7 +49,8 @@ namespace NemetschekEventManagerBackend.Extensions
                 {
                     Title = "Nemetschek Event API",
                     Version = "v1",
-                    Description = "This API stores and manages data for the Nemetschek Event Manager application.",
+                    Description = "This API stores and manages data for the Nemetschek Event Manager application.\n" +
+                    "\n IMPORTANT!!! : To authenticate use \"Bearer {your_access_token}\" (without the quotes and the curly brackets).",
                     Contact = new OpenApiContact
                     {
                         Name = "Mihail Tenev",

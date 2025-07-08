@@ -14,13 +14,15 @@ builder.Services
 
 var app = builder.Build();
 
-/*
 using (var scope = app.Services.CreateScope())
 {
-    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    var services = scope.ServiceProvider;
+    var userManager = services.GetRequiredService<UserManager<User>>();
+    var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+    await AdminSeeder.SeedAsync(userManager, roleManager);
     await RoleSeeder.SeedAsync(roleManager);
 }
-*/
+
 
 // IN DEVELOPMENT STUFF HERE
 if (app.Environment.IsDevelopment())
