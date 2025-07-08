@@ -127,6 +127,20 @@ namespace NemetschekEventManagerBackend.Extensions
                 .WithSummary("Delete event by ID")
                 .WithDescription("Deletes an event using its unique ID. If the event is not found, returns a 404 error.");
 
+            // Remove user submission from event
+            app.MapDelete("/submissions/{eventId}/{userId}",
+            [Authorize]
+            (int eventId,string userId, ISubmitService service, ClaimsPrincipal user) =>
+            {
+                
+
+                var success = service.RemoveUserFromEvent(eventId, userId);
+                return success ? Results.Ok() : Results.NotFound();
+            })
+            .WithSummary("Remove current user's submission from event")
+            .WithDescription("Removes the current user's submission from the specified event.");
+
+
             //// SUBMIT ENDPOINTS
 
             // GET a single submission by eventId and userId
