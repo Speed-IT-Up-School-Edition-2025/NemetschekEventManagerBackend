@@ -127,8 +127,11 @@ namespace NemetschekEventManagerBackend.Extensions
                     return Results.NotFound();
 
                 return Results.Ok(submit);
-            });
-            //            .RequireAuthorization();
+            })
+                .WithSummary("Get submit for authenticated user")
+                .WithDescription("Fetches a submission for the authenticated user by event ID." +
+                " Returns 404 if the submission does not exist.")
+                .RequireAuthorization();
 
             // Create new submit for authenticated user
             app.MapPost("/submits", async ([FromBody] Submit newSubmit, EventDbContext db, ClaimsPrincipal user) =>
@@ -158,8 +161,11 @@ namespace NemetschekEventManagerBackend.Extensions
                 await db.SaveChangesAsync();
 
                 return Results.Created($"/submits/{newSubmit.EventId}", newSubmit);
-            });
-            //            .RequireAuthorization();
+            })
+                .WithSummary("Create new submit for authenticated user")
+                .WithDescription("Creates a new submit record for the authenticated user." +
+                " Returns 409 if a submission already exists for the user and event.")
+                .RequireAuthorization();
 
             // PUT endpoint
             app.MapPut("submits/{eventId}", async (int eventId, Submission submissionToUpdate, EventDbContext db, ClaimsPrincipal user) =>
@@ -224,8 +230,11 @@ namespace NemetschekEventManagerBackend.Extensions
                     // Log the exception details here
                     return Results.Problem("Database update failed");
                 }
-            });
-            //                .RequireAuthorization();
+            })
+                .WithSummary("Update submission for authenticated user")
+                .WithDescription("Updates a specific submission for the authenticated user in the specified event." +
+                "Returns 404 if the submission or submit record is not found.")
+                .RequireAuthorization();
 
             app.MapDelete("/submits/{id:int}", async (int id, EventDbContext db, ClaimsPrincipal user) =>
             {
@@ -261,8 +270,11 @@ namespace NemetschekEventManagerBackend.Extensions
                     // Log error (ex.Message, ex.InnerException, etc.)
                     return Results.Problem("Failed to delete event due to database error");
                 }
-            });
-//.RequireAuthorization();
+            })
+                .WithSummary("Delete submits by ID")
+                .WithDescription("Deletes a submission by its ID for the authenticated user." +
+                " Returns 404 if the submission is not found.")
+                .RequireAuthorization();
         }
     }
 }
