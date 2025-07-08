@@ -294,6 +294,20 @@ namespace NemetschekEventManagerBackend.Extensions
                 if (user == null)
                     return Results.NotFound("User not found");
 
+                // Set times only if set to null
+                if (user.CreatedAt == null)
+                {
+                    user.CreatedAt = DateTime.UtcNow;
+                }
+
+                if (user.UpdatedAt == null)
+                {
+                    user.UpdatedAt = DateTime.UtcNow;
+                }
+
+                // Save changes to DB
+                await userManager.UpdateAsync(user);
+
                 var roles = await userManager.GetRolesAsync(user);
 
                 // If the user has no roles, assign "User"
@@ -317,7 +331,9 @@ namespace NemetschekEventManagerBackend.Extensions
                 {
                     UserId = user.Id,
                     Email = user.Email,
-                    Roles = roles
+                    Roles = roles,
+                    CreatedAt = user.CreatedAt,
+                    UpdatedAt = user.UpdatedAt
                 });
             });
         }
