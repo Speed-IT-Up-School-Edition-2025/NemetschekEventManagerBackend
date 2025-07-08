@@ -1,9 +1,11 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NemetschekEventManagerBackend.Interfaces;
 using NemetschekEventManagerBackend.Models;
 using NemetschekEventManagerBackend.Models.JSON;
 using System.Security.Claims;
+using Swashbuckle.AspNetCore.Filters;
 
 namespace NemetschekEventManagerBackend.Extensions
 {
@@ -12,21 +14,25 @@ namespace NemetschekEventManagerBackend.Extensions
         //Swagger configuration
         public static void ConfigureSwagger(this WebApplication app)
         {
-            app.UseSwagger();
+            app.UseStaticFiles();
+			app.UseSwagger();
             app.UseSwaggerUI(options =>
             {
                 options.SwaggerEndpoint("/swagger/v1/swagger.json", "Nemetschek Event API V1");
-                options.DocumentTitle = "Nemetschek Event API UI";
+				options.InjectStylesheet("/css/swagger-darkTheme.css"); //setting dark theme for the swagger UI
+				options.DocumentTitle = "Nemetschek Event API UI";
                 options.RoutePrefix = "docs"; // Swagger UI at https://localhost:<port>/docs
             });
-        }
+		}
         // Map Identity API endpoints
         public static void MapEventEndpoints(this WebApplication app)
         {
             ////EVENT ENDPOINTS
-            
+
             // Get all events
-            app.MapGet("/events", (IEventService service) =>
+            app.MapGet("/events",
+            [Authorize]
+            (IEventService service) =>
             {
                 return service.GetEvents();
             })
@@ -132,7 +138,7 @@ namespace NemetschekEventManagerBackend.Extensions
                 .WithDescription("Fetches a submission for the authenticated user by event ID." +
                 " Returns 404 if the submission does not exist.")
                 .RequireAuthorization();
-
+          
             // Create new submit for authenticated user
             app.MapPost("/submits", async ([FromBody] Submit newSubmit, EventDbContext db, ClaimsPrincipal user) =>
             {
@@ -159,7 +165,7 @@ namespace NemetschekEventManagerBackend.Extensions
                 // Add to DB
                 db.Submits.Add(newSubmit);
                 await db.SaveChangesAsync();
-
+              
                 return Results.Created($"/submits/{newSubmit.EventId}", newSubmit);
             })
                 .WithSummary("Create new submit for authenticated user")
@@ -275,6 +281,27 @@ namespace NemetschekEventManagerBackend.Extensions
                 .WithDescription("Deletes a submission by its ID for the authenticated user." +
                 " Returns 404 if the submission is not found.")
                 .RequireAuthorization();
+
+            // User me
+
+            app.MapGet("/user/me", (HttpContext httpContext) =>
+            {
+                var user = httpContext.User;
+
+                if (!user.Identity?.IsAuthenticated ?? true)
+                {
+                    return Results.Unauthorized();
+                }
+
+                var userId = user.FindFirst("oid")?.Value;
+                var email = user.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+
+                return Results.Ok(new
+                {
+                    UserId = userId,
+                    Email = email
+                });
+            });
         }
     }
 }
