@@ -337,10 +337,10 @@ namespace NemetschekEventManagerBackend.Extensions
                     CreatedAt = user.CreatedAt,
                     UpdatedAt = user.UpdatedAt
                 });
-            }).WithSummary("Creates roles")
-            .WithDescription("Creates roles as if role is not set to be 'administrator' it set to default => 'user'");
+            }).WithSummary("Gets information for the current user")
+            .WithDescription("Gives UserID, Email, Role, Created At date and Updated At date. If the user doesn't have a role, it assigns the role \"User\".");
 
-            //enpoint to get all users ID and emails
+            //enpoint to get all users
             app.MapGet("/users/info",
             [Authorize(Roles = "Administrator")]
             async(UserManager<User> manager) =>
@@ -349,13 +349,21 @@ namespace NemetschekEventManagerBackend.Extensions
                 {
                     var users = await manager.Users.ToListAsync();
 
-                    var userInfos = users.Select(info => new
+                    var userInfos = new List<object>();
+
+                    foreach (var user in users)
                     {
-                        ID = info.Id,
-                        Email = info.Email,
-                        CreatedAT = info.CreatedAt,
-                        UpdatedAT = info.UpdatedAt,
-					}).ToList();
+                        var roles = await manager.GetRolesAsync(user);
+
+                        userInfos.Add(new
+                        {
+                            ID = user.Id,
+                            Email = user.Email,
+                            Roles = roles,
+                            CreatedAT = user.CreatedAt,
+                            UpdatedAT = user.UpdatedAt
+                        });
+                    }
 
                     return Results.Ok(userInfos);
                 }
@@ -364,7 +372,7 @@ namespace NemetschekEventManagerBackend.Extensions
                     return Results.Problem("Error message: " + ex);
                 }
             }).WithSummary("Gets users info")
-            .WithDescription("Returns the ID, Email, Created at date and Updated At date for every user despite their role");
+            .WithDescription("Returns the ID, Email, Created at date and Updated At date for every user");
 
             //enpoint-admin makes other users administrators
             app.MapPost("/users/admin/{id}",
@@ -426,7 +434,7 @@ namespace NemetschekEventManagerBackend.Extensions
                 }
                 else
                 {
-                    await manager.AddToRoleAsync(user_to_remove!, "Aministrator"); // Ensure the user has his role back
+                    await manager.AddToRoleAsync(user_to_remove!, "Administrator"); // Ensure the user has his role back
 					return Results.BadRequest("Failed to remove user from administrators.");
 				}
 			}).WithSummary("Removes admin")

@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Identity;
-using NemetschekEventManagerBackend;
 using NemetschekEventManagerBackend.Extensions;
 using NemetschekEventManagerBackend.Models;
+using NemetschekEventManagerBackend.Seeders;
 
 var builder = WebApplication.CreateBuilder(args);
 
