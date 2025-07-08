@@ -30,10 +30,14 @@ namespace NemetschekEventManagerBackend.Extensions
         {
             services.AddIdentity<User, IdentityRole>()
                 .AddEntityFrameworkStores<EventDbContext>()
-                .AddDefaultTokenProviders();
-
+                .AddDefaultTokenProviders()
+                .AddDefaultUI();
 
             services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
+
+            /// Uncomment to allow anonymous for all endpoints (removes code 401)
+
+            /*
             services.AddAuthorization(options =>
             {
                 options.FallbackPolicy = new AuthorizationPolicyBuilder()
@@ -41,6 +45,7 @@ namespace NemetschekEventManagerBackend.Extensions
                 .RequireAuthenticatedUser()
                 .Build();
             });
+            */
 
             services.AddScoped<UserManager<User>>();
             services.AddScoped<RoleManager<IdentityRole>>();

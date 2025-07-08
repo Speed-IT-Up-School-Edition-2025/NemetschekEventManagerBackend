@@ -26,8 +26,15 @@ if (app.Environment.IsDevelopment())
     app.ConfigureSwagger();
 }
 
+// Create the roles if they don't exist
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    await RoleSeeder.SeedRolesAsync(services);
+}
+
 // Use authentication & authorization
-app.MapIdentityApi<User>();
+app.MapIdentityApi<User>().AllowAnonymous();
 
 app.ConfigureRoleBasedAuthorization();
 
