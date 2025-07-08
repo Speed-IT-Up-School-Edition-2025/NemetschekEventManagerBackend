@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Identity;
 
-namespace NemetschekEventManagerBackend
+namespace NemetschekEventManagerBackend.Seeders
 {
     public static class RoleSeeder
     {

@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using NemetschekEventManagerBackend.Models;
 
-namespace NemetschekEventManagerBackend
+namespace NemetschekEventManagerBackend.Seeders
 {
     public static class AdminSeeder
     {
