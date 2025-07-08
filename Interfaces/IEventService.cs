@@ -11,5 +11,6 @@ namespace NemetschekEventManagerBackend.Interfaces
         bool RemoveById(int eventId);
         bool Update(int eventId, string name, string description, DateTime? date, DateTime? signUpEndDate, string location);
         void UpdateEvent(Event ev);
+        
     }
 }

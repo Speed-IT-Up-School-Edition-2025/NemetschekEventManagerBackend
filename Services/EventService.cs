@@ -36,6 +36,8 @@ public class EventService : IEventService
         return _context.Events.Find(eventId);
     }
 
+
+
     public List<Event> GetEvents()
     {
         List<Event> ev = _context.Events.ToList();
@@ -76,10 +78,12 @@ public class EventService : IEventService
         return events;
     }
 
+  
+
     public bool RemoveById(int eventId)
     {
         var ev = GetEventById(eventId);
-        if (ev == null)
+        if (ev == null )
             return false;
 
         _context.Events.Remove(ev);
