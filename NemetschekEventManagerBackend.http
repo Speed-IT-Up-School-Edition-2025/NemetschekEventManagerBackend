@@ -21,3 +21,8 @@ GET {{NemetschekEventManagerBackend_HostAddress}}/events
 
 @id=0
 GET {{NemetschekEventManagerBackend_HostAddress}}/events/{{id}}
+
+@eventId=0
+GET {{NemetschekEventManagerBackend_HostAddress}}/submits/{{eventId}}
+
+###

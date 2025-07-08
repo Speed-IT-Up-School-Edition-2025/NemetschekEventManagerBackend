@@ -109,18 +109,6 @@ namespace NemetschekEventManagerBackend.Extensions
 
             //// SUBMIT ENDPOINTS
 
-            // GET all submissions endpoint
-
-            // returns a list of all Submit records in the database
-            app.MapGet("/api/submits", async (EventDbContext db) =>
-            {
-                // Fetch all submissions from the database asynchronously
-                var submissions = await db.Submits.ToListAsync();
-
-                // Return HTTP 200 OK with the list of submissions
-                return Results.Ok(submissions);
-            });
-
             // GET a single submission by eventId and userId
             // Get submit for authenticated user
             app.MapGet("/submits/{eventId}", async (int eventId, EventDbContext db, ClaimsPrincipal user) =>
@@ -139,8 +127,8 @@ namespace NemetschekEventManagerBackend.Extensions
                     return Results.NotFound();
 
                 return Results.Ok(submit);
-            })
-            .RequireAuthorization();
+            });
+            //            .RequireAuthorization();
 
             // Create new submit for authenticated user
             app.MapPost("/submits", async ([FromBody] Submit newSubmit, EventDbContext db, ClaimsPrincipal user) =>
@@ -170,8 +158,8 @@ namespace NemetschekEventManagerBackend.Extensions
                 await db.SaveChangesAsync();
 
                 return Results.Created($"/submits/{newSubmit.EventId}", newSubmit);
-            })
-            .RequireAuthorization();
+            });
+            //            .RequireAuthorization();
 
             // PUT endpoint
             app.MapPut("submits/{eventId}", async (int eventId, Submission submissionToUpdate, EventDbContext db, ClaimsPrincipal user) =>
@@ -236,22 +224,45 @@ namespace NemetschekEventManagerBackend.Extensions
                     // Log the exception details here
                     return Results.Problem("Database update failed");
                 }
-            })
-                .RequireAuthorization();
+            });
+            //                .RequireAuthorization();
 
-            app.MapDelete("/submits/{id:int}", async (int id, EventDbContext db) =>
+            app.MapDelete("/submits/{id:int}", async (int id, EventDbContext db, ClaimsPrincipal user) =>
             {
+                // Authentication check
+                if (user?.Identity?.IsAuthenticated != true)
+                    return Results.Unauthorized();
+
+                // Get authenticated user ID
+                var authenticatedUserId = user.FindFirstValue(ClaimTypes.NameIdentifier)
+                                          ?? user.FindFirstValue("sub");
+
+                if (string.IsNullOrEmpty(authenticatedUserId))
+                    return Results.Unauthorized();
+
+                // Find the event
                 var ev = await db.Events.FindAsync(id);
                 if (ev == null)
+                    return Results.NotFound("Event not found");
+
+                // Authorization - Only allow admins to delete events
+                if (!user.IsInRole("Admin"))
+                    return Results.Forbid();
+
+                // Perform deletion
+                try
                 {
-                    return Results.NotFound();
+                    db.Events.Remove(ev);
+                    await db.SaveChangesAsync();
+                    return Results.NoContent();
                 }
-
-                db.Events.Remove(ev);
-                await db.SaveChangesAsync();
-
-                return Results.NoContent();
+                catch (DbUpdateException ex)
+                {
+                    // Log error (ex.Message, ex.InnerException, etc.)
+                    return Results.Problem("Failed to delete event due to database error");
+                }
             });
+//.RequireAuthorization();
         }
     }
 }
