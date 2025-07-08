@@ -274,7 +274,7 @@ namespace NemetschekEventManagerBackend.Extensions
 
             // Get user info
 
-            app.MapGet("/user/me", async (
+            app.MapGet("/users/me", async (
             HttpContext httpContext,
             UserManager<User> userManager,
             RoleManager<IdentityRole> roleManager) =>
@@ -367,7 +367,7 @@ namespace NemetschekEventManagerBackend.Extensions
             .WithDescription("Returns the ID, Email, Created at date and Updated At date for every user despite their role");
 
             //enpoint-admin makes other users administrators
-            app.MapPost("/users/make-admin/{id}",
+            app.MapPost("/users/admin/{id}",
             [Authorize(Roles = "Administrator")]
             async (UserManager<User> userManager, string id) =>
             {
@@ -404,7 +404,7 @@ namespace NemetschekEventManagerBackend.Extensions
             .WithDescription("Only Amins can add new admins as it selects them by ID");
 
             //endpoint-admin removes other admins from administrators
-            app.MapDelete("/users/remove-admin/{id}",
+            app.MapDelete("/users/admin/{id}",
             [Authorize(Roles = "Administrator")]
             async (UserManager<User> manager, string id) =>
             {
