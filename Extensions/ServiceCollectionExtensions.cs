@@ -70,23 +70,23 @@ namespace NemetschekEventManagerBackend.Extensions
                 });
 
                 options.AddSecurityRequirement(new OpenApiSecurityRequirement()
-      {
-        {
-          new OpenApiSecurityScheme
-          {
-            Reference = new OpenApiReference
               {
-                Type = ReferenceType.SecurityScheme,
-                Id = "Bearer"
-              },
-              Scheme = "oauth2",
-              Name = "Bearer",
-              In = ParameterLocation.Header,
+                {
+                  new OpenApiSecurityScheme
+                  {
+                    Reference = new OpenApiReference
+                      {
+                        Type = ReferenceType.SecurityScheme,
+                        Id = "Bearer"
+                      },
+                      Scheme = "oauth2",
+                      Name = "Bearer",
+                      In = ParameterLocation.Header,
 
-            },
-            new List<string>()
-          }
-        });
+                    },
+                    new List<string>()
+                  }
+                });
 
                 var xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
                 options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));
