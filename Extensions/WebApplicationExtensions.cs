@@ -1,11 +1,12 @@
 ﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NemetschekEventManagerBackend.Interfaces;
 using NemetschekEventManagerBackend.Models;
 using NemetschekEventManagerBackend.Models.JSON;
-using System.Security.Claims;
 using Swashbuckle.AspNetCore.Filters;
+using System.Security.Claims;
 
 namespace NemetschekEventManagerBackend.Extensions
 {
@@ -284,6 +285,8 @@ namespace NemetschekEventManagerBackend.Extensions
 
             // User me
 
+            /*
+
             app.MapGet("/user/me", (HttpContext httpContext) =>
             {
                 var user = httpContext.User;
@@ -300,6 +303,57 @@ namespace NemetschekEventManagerBackend.Extensions
                 {
                     UserId = userId,
                     Email = email
+                });
+            });
+            */
+
+            app.MapGet("/user/me", async (
+            HttpContext httpContext,
+            UserManager<User> userManager,
+            RoleManager<IdentityRole> roleManager) =>
+            {
+                var principal = httpContext.User;
+
+                if (!principal.Identity?.IsAuthenticated ?? true)
+                {
+                    return Results.Unauthorized();
+                }
+
+                // Get the user ID from JWT (use ClaimTypes.NameIdentifier if you're using standard JWT claims)
+                var userId = principal.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                var email = principal.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+
+                if (userId == null)
+                    return Results.Unauthorized();
+
+                var user = await userManager.FindByIdAsync(userId);
+                if (user == null)
+                    return Results.NotFound("User not found");
+
+                var roles = await userManager.GetRolesAsync(user);
+
+                // If the user has no roles, assign "User"
+                if (roles.Count == 0)
+                {
+                    if (!await roleManager.RoleExistsAsync("User"))
+                    {
+                        await roleManager.CreateAsync(new IdentityRole("User"));
+                    }
+
+                    var result = await userManager.AddToRoleAsync(user, "User");
+                    if (!result.Succeeded)
+                    {
+                        return Results.Problem("Failed to assign default role.");
+                    }
+
+                    roles = await userManager.GetRolesAsync(user); // Re-fetch roles
+                }
+
+                return Results.Ok(new
+                {
+                    UserId = user.Id,
+                    Email = user.Email,
+                    Roles = roles
                 });
             });
         }

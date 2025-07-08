@@ -1,10 +1,13 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using NemetschekEventManagerBackend.Interfaces;
 using NemetschekEventManagerBackend.Models;
 using System.Reflection;
+using System.Text;
 
 namespace NemetschekEventManagerBackend.Extensions
 {
@@ -26,8 +29,30 @@ namespace NemetschekEventManagerBackend.Extensions
         // Add Identity services to the IServiceCollection
         public static IServiceCollection AddAppIdentity(this IServiceCollection services)
         {
-            services.AddIdentityApiEndpoints<User>()
-                    .AddEntityFrameworkStores<EventDbContext>();
+            services.AddIdentityCore<User>()
+                .AddRoles<IdentityRole>()
+                .AddEntityFrameworkStores<EventDbContext>()
+                .AddDefaultTokenProviders();
+
+            services.AddIdentityApiEndpoints<User>();
+
+            /*
+            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddJwtBearer(options =>
+            {
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    ValidIssuer = "your-issuer",
+                    ValidAudience = "your-audience",
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("your-secret-key"))
+                };
+            });
+            */
+
             services.AddAuthorization();
             return services;
         }
