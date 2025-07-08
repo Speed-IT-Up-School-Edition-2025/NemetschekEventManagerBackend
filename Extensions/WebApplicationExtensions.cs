@@ -6,7 +6,9 @@ using NemetschekEventManagerBackend.Interfaces;
 using NemetschekEventManagerBackend.Models;
 using NemetschekEventManagerBackend.Models.JSON;
 using Swashbuckle.AspNetCore.Filters;
+using System.Data;
 using System.Security.Claims;
+using System.Linq;
 
 namespace NemetschekEventManagerBackend.Extensions
 {
@@ -188,7 +190,7 @@ namespace NemetschekEventManagerBackend.Extensions
             {
                 // Get authenticated user ID from claims
                 var authenticatedUserId = user.FindFirstValue(ClaimTypes.NameIdentifier)
-                                          ?? user.FindFirstValue("sub"); 
+                                          ?? user.FindFirstValue("sub");
 
                 // Get the submit entity by eventId and authenticated userId
                 var submit = await db.Set<Submit>()
@@ -319,7 +321,100 @@ namespace NemetschekEventManagerBackend.Extensions
                     Email = user.Email,
                     Roles = roles
                 });
-            });
-        }
-    }
+            }).WithSummary("Creates roles")
+            .WithDescription("Creates roles as if role is not set to be 'administrator' it set to default => 'user'");
+
+            //enpoint to get all users ID and emails
+            app.MapGet("/users/info",
+            [Authorize(Roles = "Administrator")]
+            async(UserManager<User> manager) =>
+            {
+                try
+                {
+                    var users = await manager.Users.ToListAsync();
+
+                    var userInfos = users.Select(info => new
+                    {
+                        ID = info.Id,
+                        Email = info.Email,
+                        CreatedAT = info.CreatedAt,
+                        UpdatedAT = info.UpdatedAt,
+					}).ToList();
+
+                    return Results.Ok(userInfos);
+                }
+                catch (Exception ex)
+                {
+                    return Results.Problem("Error message: " + ex);
+                }
+            }).WithSummary("Gets users info")
+            .WithDescription("Returns the ID, Email, Created at date and Updated At date for every user despite their role");
+
+            //enpoint-admin makes other users administrators
+            app.MapPost("/users/make-admin/{id}",
+            [Authorize(Roles = "Administrator")]
+            async (UserManager<User> userManager, string id) =>
+            {
+                try
+                {
+                    var users = await userManager.Users.ToListAsync();
+
+                    var user_to_admin = users.FirstOrDefault(users => users.Id.Equals(id));
+
+                    if (user_to_admin == null)
+                    {
+                        return Results.NotFound("User not found");
+                    }
+
+                    await userManager.RemoveFromRoleAsync(user_to_admin, "User"); // Remove default role if exists
+					var result = await userManager.AddToRoleAsync(user_to_admin, "Administrator");
+
+                    if (result.Succeeded)
+                    {
+                        return Results.Ok("User has been made an administrator.");
+                    }
+                    else
+                    {
+						await userManager.AddToRoleAsync(user_to_admin, "User"); // Ensure the user has a default role
+						return Results.BadRequest("Failed to make user an administrator.");
+					}
+
+                }
+                catch (Exception ex)
+                {
+                    return Results.Problem("Error message: " + ex);
+                }
+			}).WithSummary("Admin adds new admins")
+            .WithDescription("Only Amins can add new admins as it selects them by ID");
+
+            //endpoint-admin removes other admins from administrators
+            app.MapDelete("/users/remove-admin/{id}",
+            [Authorize(Roles = "Administrator")]
+            async (UserManager<User> manager, string id) =>
+            {
+                var users = await manager.Users.ToListAsync();
+
+                var user_to_remove = users.FirstOrDefault(users => users.Id.Equals(id));
+
+                if (user_to_remove == null)
+                {
+                    return Results.NotFound("User not found");
+				}
+
+				var result = await manager.RemoveFromRoleAsync(user_to_remove!, "Administrator");
+
+                if (result.Succeeded)
+                {
+                    await manager.AddToRoleAsync(user_to_remove!, "User"); // Ensure the user has a default role
+					return Results.Ok("User has been removed from administrators.");
+                }
+                else
+                {
+                    await manager.AddToRoleAsync(user_to_remove!, "Aministrator"); // Ensure the user has his role back
+					return Results.BadRequest("Failed to remove user from administrators.");
+				}
+			}).WithSummary("Removes admin")
+            .WithDescription("Only admins remove other admins which are selected by ID as once the admin role is removed the user gets the role 'user'");
+		}
+	}
 }
