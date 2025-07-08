@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NemetschekEventManagerBackend.Interfaces;
 using NemetschekEventManagerBackend.Models;
@@ -28,7 +29,9 @@ namespace NemetschekEventManagerBackend.Extensions
             ////EVENT ENDPOINTS
 
             // Get all events
-            app.MapGet("/events", (IEventService service) =>
+            app.MapGet("/events",
+            [Authorize]
+            (IEventService service) =>
             {
                 return service.GetEvents();
             })
