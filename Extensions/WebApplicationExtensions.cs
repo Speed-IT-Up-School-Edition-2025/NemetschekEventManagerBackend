@@ -1,10 +1,14 @@
+using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
-using NemetschekEventManagerBackend.Interfaces;
-using System.Security.Claims;
-using NemetschekEventManagerBackend.Models.DTOs;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using NemetschekEventManagerBackend.Interfaces;
 using NemetschekEventManagerBackend.Models;
+using NemetschekEventManagerBackend.Models.DTOs;
+using System.Diagnostics;
+using System.Security.Claims;
+using System.Text;
 
 namespace NemetschekEventManagerBackend.Extensions
 {
@@ -331,6 +335,165 @@ namespace NemetschekEventManagerBackend.Extensions
 				}
 			}).WithSummary("Removes admin.")
             .WithDescription("Only admins remove other admins which are selected by ID as once the admin role is removed the user gets the role 'User'.");
-		}
-	}
+
+            // Export submissions of a certain event as a .csv file
+            app.MapGet("/csv/{eventId}",
+            //[Authorize(Roles = "Administrator")]
+            (HttpContext httpContext,
+            int eventId,
+            ISubmitService submitService,
+            IEventService eventService) =>
+            {
+                if (!eventService.Exists(eventId))
+                {
+                    return Results.NotFound($"Event was not found.");
+                }
+
+                var data = submitService.GetSubmitsByEventId(eventId);
+
+                // Gather all unique submission names (to build the header row)
+                var submissionNames = data
+                    .SelectMany(d => d.Submissions ?? [])
+                    .Select(s => s.Name ?? "")
+                    .Distinct()
+                    .OrderBy(name => name)
+                    .ToList();
+
+                var csvBuilder = new StringBuilder();
+
+                // Header
+                csvBuilder.Append("Date");
+                foreach (var name in submissionNames)
+                {
+                    csvBuilder.Append($",\"{name.Replace("\"", "\"\"")}\"");
+                    Debug.WriteLine(name);
+                }
+                csvBuilder.AppendLine();
+
+                // Rows
+                foreach (var summary in data)
+                {
+                    var date = summary.Date?.ToString("yyyy-MM-dd HH:mm:ss") ?? "";
+                    csvBuilder.Append($"\"{date}\"");
+
+                    var submissionsDict = (summary.Submissions ?? []).ToDictionary(
+                        s => s.Name ?? "",
+                        s => s.Options != null ? string.Join("; \n", s.Options.Select(o => o.Replace("\"", "\"\""))) : ""
+                    );
+
+                    foreach (var name in submissionNames)
+                    {
+                        if (submissionsDict.TryGetValue(name, out var options))
+                            csvBuilder.Append($",\"{options}\"");
+                        else
+                            csvBuilder.Append(","); // empty if not answered
+                    }
+
+                    csvBuilder.AppendLine();
+                }
+
+                var utf8WithBom = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
+                var csvString = csvBuilder.ToString();
+                var csvBytes = utf8WithBom.GetBytes(csvString);
+
+                // Set content headers explicitly for correct encoding
+                httpContext.Response.Headers.ContentType = "text/csv; charset=utf-8";
+                httpContext.Response.Headers.ContentDisposition = "attachment; filename=\"submissions.csv\"";
+
+                return Results.File(csvBytes, "text/csv; charset=utf-8");
+
+            }).WithSummary("Exports all submits for a certain event in .csv file.")
+            .WithDescription("Exports all submits for a certain event in .csv file. If the event doesn't exist it return code 404.");
+
+            // Export submissions of a event as a .xlsx file
+
+            app.MapGet("/xlsx/{eventId}",
+            //[Authorize(Roles = "Administrator")]
+            (HttpContext httpContext,
+            int eventId,
+            ISubmitService submitService,
+            IEventService eventService) =>
+            {
+                if(!eventService.Exists(eventId))
+                {
+                    return Results.NotFound($"Event was not found.");
+                }
+
+                var data = submitService.GetSubmitsByEventId(eventId);
+
+                // Collect all unique submission names (columns)
+                var submissionNames = data
+                    .SelectMany(d => d.Submissions ?? [])
+                    .Select(s => s.Name ?? "")
+                    .Distinct()
+                    .OrderBy(name => name)
+                    .ToList();
+
+                using var workbook = new XLWorkbook();
+                var worksheet = workbook.Worksheets.Add("Submissions");
+
+                // Header row
+                worksheet.Cell(1, 1).Value = "Date";
+                for (int i = 0; i < submissionNames.Count; i++)
+                {
+                    worksheet.Cell(1, i + 2).Value = submissionNames[i];
+                }
+
+                int totalColumns = submissionNames.Count + 1;
+                var headerRange = worksheet.Range(1, 1, 1, totalColumns);
+                headerRange.Style.Font.Bold = true;
+                headerRange.Style.Fill.BackgroundColor = XLColor.LightBlue;
+                headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                headerRange.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+
+                // Data rows
+                int row = 2;
+                foreach (var summary in data)
+                {
+                    worksheet.Cell(row, 1).Value = summary.Date?.ToString("yyyy-MM-dd HH:mm:ss") ?? "";
+
+                    var submissionsDict = (summary.Submissions ?? []).ToDictionary(
+                    s => s.Name ?? "",
+                    s => s.Options != null ? string.Join(Environment.NewLine, s.Options) : ""
+);
+
+                    for (int i = 0; i < submissionNames.Count; i++)
+                    {
+                        var name = submissionNames[i];
+                        if (submissionsDict.TryGetValue(name, out var value))
+                        {
+                            var cell = worksheet.Cell(row, i + 2);
+                            cell.Value = value;
+                            cell.Style.Alignment.WrapText = true;
+                        }
+                        else
+                        {
+                            worksheet.Cell(row, i + 2).Value = "";
+                        }
+                    }
+
+                    row++;
+                }
+
+                // Auto adjust columns
+                worksheet.Columns().AdjustToContents();
+
+                // Apply borders to the whole used range
+                var usedRange = worksheet.RangeUsed();
+                usedRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+                usedRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+                // Save to memory stream
+                using var stream = new MemoryStream();
+                workbook.SaveAs(stream);
+                stream.Seek(0, SeekOrigin.Begin);
+
+                return Results.File(stream.ToArray(),
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    "submissions.xlsx");
+
+            }).WithSummary("Exports all submits for a certain event in .xlsx file.")
+            .WithDescription("Exports all submits for a certain event in .xlsx file. If the event doesn't exist it return code 404.");
+        }
+    }
 }
