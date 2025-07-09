@@ -349,7 +349,7 @@ namespace NemetschekEventManagerBackend.Extensions
 
             // Export submissions of a certain event as a .csv file
             app.MapGet("/csv/{eventId}",
-            //[Authorize(Roles = "Administrator")]
+            [Authorize(Roles = "Administrator")]
             (HttpContext httpContext,
             int eventId,
             ISubmitService submitService,
@@ -419,7 +419,7 @@ namespace NemetschekEventManagerBackend.Extensions
             // Export submissions of a event as a .xlsx file
 
             app.MapGet("/xlsx/{eventId}",
-            //[Authorize(Roles = "Administrator")]
+            [Authorize(Roles = "Administrator")]
             (HttpContext httpContext,
             int eventId,
             ISubmitService submitService,
