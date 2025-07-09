@@ -3,15 +3,8 @@ using NemetschekEventManagerBackend.Interfaces;
 using System.Security.Claims;
 using NemetschekEventManagerBackend.Models.DTOs;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using NemetschekEventManagerBackend.Interfaces;
 using NemetschekEventManagerBackend.Models;
-using NemetschekEventManagerBackend.Models.JSON;
-using Swashbuckle.AspNetCore.Filters;
-using System.Data;
-using System.Security.Claims;
-using System.Linq;
 
 namespace NemetschekEventManagerBackend.Extensions
 {
@@ -72,7 +65,7 @@ namespace NemetschekEventManagerBackend.Extensions
             //Create new event
             app.MapPost("/events",
             [Authorize(Roles = "Administrator")]
-            (IEventService service, Event newEvent) =>
+            (IEventService service, CreateEventDto dto) =>
             {
                 if (string.IsNullOrWhiteSpace(dto.Name))
                     return Results.BadRequest("Event name is required.");
@@ -90,22 +83,17 @@ namespace NemetschekEventManagerBackend.Extensions
 
 
             // Update event by ID (primitive params)
+
             app.MapPut("/events/{id}",
             [Authorize(Roles = "Administrator")]
-            (
-                IEventService service,
-                int id,
-                string name,
-                string description,
-                DateTime? date,
-                DateTime? signUpEndDate,
-                string location) =>
+            (IEventService service, int id, UpdateEventDto dto) =>
             {
                 var success = service.Update(id, dto);
                 return success ? Results.Ok() : Results.NotFound();
             })
             .WithSummary("Update event by ID")
-            .WithDescription("Updates an existing event using its ID and provided details. Returns 404 if the event is not found.");
+            .WithDescription("Updates an existing event using its ID and provided details. Returns 404 if not found.");
+
 
             // Delete event by ID
             app.MapDelete("/events/{id}",
@@ -186,7 +174,7 @@ namespace NemetschekEventManagerBackend.Extensions
             .RequireAuthorization();
 
             // User me
-            app.MapGet("/user/me", (HttpContext httpContext) =>
+            app.MapGet("/users/me", async (HttpContext httpContext, UserManager<User> userManager, RoleManager<IdentityRole> roleManager) =>
             {
                 var principal = httpContext.User;
 
