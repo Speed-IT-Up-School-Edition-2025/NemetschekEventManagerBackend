@@ -1,5 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.UI.Services;
+﻿using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using NemetschekEventManagerBackend.Interfaces;
@@ -14,6 +13,7 @@ namespace NemetschekEventManagerBackend.Extensions
         public static IServiceCollection AddAppServices(this IServiceCollection services)
         {
             services.AddScoped<IEventService, EventService>();
+            services.AddScoped<ISubmitService, SubmitService>();
             return services;
         }
         // Add application DbContext to the IServiceCollection

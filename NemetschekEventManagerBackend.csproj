@@ -30,11 +30,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Migrations\" />
-    <Folder Include="Services\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <None Include="wwwroot\css\swagger-darkTheme.css" />
   </ItemGroup>
 

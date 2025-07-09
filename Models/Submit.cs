@@ -1,6 +1,7 @@
 ﻿using NemetschekEventManagerBackend.Models.JSON;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace NemetschekEventManagerBackend.Models
 {
@@ -19,9 +20,11 @@ namespace NemetschekEventManagerBackend.Models
         public DateTime? UpdatedAt { get; set; }
 
         [ForeignKey("EventId")]
+        [JsonIgnore]
         public Event? Event { get; set; }
 
         [ForeignKey("UserId")]
+        [JsonIgnore]
         public User? User { get; set; }
     }
 }

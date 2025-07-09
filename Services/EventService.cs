@@ -2,8 +2,7 @@
 using NemetschekEventManagerBackend;
 using NemetschekEventManagerBackend.Interfaces;
 using NemetschekEventManagerBackend.Models;
-using NemetschekEventManagerBackend.Models.JSON;
-using System;
+using NemetschekEventManagerBackend.Models.DTOs;
 
 public class EventService : IEventService
 {
@@ -13,21 +12,9 @@ public class EventService : IEventService
     {
         _context = context;
     }
-
-    public bool Create(string name, string description, DateTime? date, DateTime? signUpEndDate, string location)
+    public bool Create(Event newEvent)
     {
-        Event ev = new Event
-        {
-            Name = name,
-            Description = description,
-            Date = date,
-            SignUpEndDate = signUpEndDate,
-            Location = location,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
-
-        _context.Events.Add(ev);
+        _context.Events.Add(newEvent);
         return _context.SaveChanges() != 0;
     }
 
@@ -36,11 +23,14 @@ public class EventService : IEventService
         return _context.Events.Find(eventId);
     }
 
-    public List<Event> GetEvents()
+    public List<EventSummaryDto> GetEvents()
     {
-        List<Event> ev = _context.Events.ToList();
-        return ev;
+        return _context.Events
+            .AsNoTracking()
+            .Select(e => e.ToSummaryDto())
+            .ToList();
     }
+
 
     public List<Event> GetEvents(string searchName, DateTime? date, bool? activeOnly)
     {
@@ -69,7 +59,7 @@ public class EventService : IEventService
         {
             var now = DateTime.UtcNow;
             events = events
-                .Where(e => e.SignUpEndDate.HasValue && e.SignUpEndDate.Value > now)
+                .Where(e => e.SignUpDeadline.HasValue && e.SignUpDeadline.Value > now)
                 .ToList();
         }
 
@@ -86,27 +76,14 @@ public class EventService : IEventService
         return _context.SaveChanges() != 0;
     }
 
-    public bool Update(int eventId, string name, string description, DateTime? date, DateTime? signUpEndDate, string location)
+    public bool Update(int eventId, UpdateEventDto dto)
     {
         var ev = GetEventById(eventId);
-        if (ev == null)
-            return false;
+        if (ev == null) return false;
 
-        ev.Name = name;
-        ev.Description = description;
-        ev.Date = date;
-        ev.SignUpEndDate = signUpEndDate;
-        ev.Location = location;
-        ev.UpdatedAt = DateTime.UtcNow;
+        EventMapper.UpdateEntity(ev, dto);
 
         _context.Events.Update(ev);
         return _context.SaveChanges() != 0;
-    }
-
-    public void UpdateEvent(Event ev)
-    {
-        ev.UpdatedAt = DateTime.UtcNow;
-        _context.Events.Update(ev);
-        _context.SaveChanges();
     }
 }
