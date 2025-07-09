@@ -12,7 +12,7 @@ using NemetschekEventManagerBackend;
 namespace NemetschekEventManagerBackend.Migrations
 {
     [DbContext(typeof(EventDbContext))]
-    [Migration("20250704133944_Initial")]
+    [Migration("20250708134257_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -185,7 +185,7 @@ namespace NemetschekEventManagerBackend.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime?>("SignUpEndDate")
+                    b.Property<DateTime?>("SignUpDeadline")
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("UpdatedAt")

@@ -1,3 +1,4 @@
+﻿using Microsoft.AspNetCore.Identity.UI.Services;
 ﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
@@ -17,6 +18,7 @@ namespace NemetschekEventManagerBackend.Extensions
         public static IServiceCollection AddAppServices(this IServiceCollection services)
         {
             services.AddScoped<IEventService, EventService>();
+            services.AddScoped<ISubmitService, SubmitService>();
             return services;
         }
         // Add application DbContext to the IServiceCollection

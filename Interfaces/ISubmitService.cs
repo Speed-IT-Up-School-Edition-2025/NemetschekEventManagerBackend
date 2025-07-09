@@ -1,10 +1,11 @@
 ﻿using NemetschekEventManagerBackend.Models;
+using NemetschekEventManagerBackend.Models.DTOs;
 
-namespace NemetschekEventManagerBackend.Interfaces
+public interface ISubmitService
 {
-    public interface ISubmitService
-    {
-
-        bool RemoveUserFromEvent(int eventId, string userId);
-    }
+    List<SubmitSummaryDto> GetSubmitsByEventId(int eventId);
+    Submit? GetSubmitByEventAndUser(int eventId, string userId);
+    bool Create(int eventId, string userId, CreateSubmitDto dto);
+    bool UpdateSubmission(int eventId, string userId, UpdateSubmitDto dto);
+    bool RemoveUserFromEvent(int eventId, string userId);
 }

@@ -1,7 +1,6 @@
 ﻿using MailKit.Net.Smtp;
 using MimeKit;
 using Microsoft.AspNetCore.Identity.UI.Services;
-using System.Threading.Tasks;
 
 public class GmailEmailSender : IEmailSender
 {

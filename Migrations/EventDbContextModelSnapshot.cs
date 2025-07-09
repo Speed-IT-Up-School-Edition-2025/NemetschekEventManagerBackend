@@ -182,7 +182,7 @@ namespace NemetschekEventManagerBackend.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime?>("SignUpEndDate")
+                    b.Property<DateTime?>("SignUpDeadline")
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("UpdatedAt")
