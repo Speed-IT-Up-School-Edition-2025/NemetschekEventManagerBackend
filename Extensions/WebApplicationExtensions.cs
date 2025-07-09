@@ -134,8 +134,7 @@ namespace NemetschekEventManagerBackend.Extensions
                     : Results.Ok(submits);
             })
             .WithSummary("Get submit for authenticated user")
-            .WithDescription("Fetches a submission for the authenticated user by event ID. Returns 404 if the submission does not exist.")
-            .RequireAuthorization();
+            .WithDescription("Fetches a submission for the authenticated user by event ID. Returns 404 if the submission does not exist.");
 
             // Create new submit for authenticated user
             app.MapPost("/submits/{eventId}",
@@ -146,14 +145,13 @@ namespace NemetschekEventManagerBackend.Extensions
                 if (string.IsNullOrEmpty(userId))
                     return Results.Unauthorized();
 
-                var created = service.Create(eventId, userId,dto);
+                var created = service.Create(eventId, userId, dto);
                 return created
                     ? Results.Created($"/submits/{eventId}", dto)
                     : Results.Conflict("A submission already exists for this user and event.");
             })
             .WithSummary("Create new submit for authenticated user")
-            .WithDescription("Creates a new submit record for the authenticated user. Returns 409 if one already exists.")
-            .RequireAuthorization();
+            .WithDescription("Creates a new submit record for the authenticated user. Returns 409 if one already exists.");
 
             // PUT endpoint
             app.MapPut("/submits/{eventId}",
@@ -170,24 +168,20 @@ namespace NemetschekEventManagerBackend.Extensions
                     : Results.NotFound("Submit record not found or update failed.");
             })
             .WithSummary("Update submission for authenticated user")
-            .WithDescription("Updates all submissions for the authenticated user in the specified event. Returns 404 if not found.")
-            .RequireAuthorization();
+            .WithDescription("Updates all submissions for the authenticated user in the specified event. Returns 404 if not found.");
 
             // User me
-            app.MapGet("/users/me", async (HttpContext httpContext, UserManager<User> userManager, RoleManager<IdentityRole> roleManager) =>
+            app.MapGet("/users/me",
+            [Authorize]
+            async 
+            (HttpContext httpContext, 
+            UserManager<User> userManager, 
+            RoleManager<IdentityRole> roleManager) =>
             {
                 var principal = httpContext.User;
 
-                if (!principal.Identity?.IsAuthenticated ?? true)
-                {
-                    return Results.Unauthorized();
-                }
-
                 var userId = principal.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
                 var email = principal.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
-
-                if (userId == null)
-                    return Results.Unauthorized();
 
                 var user = await userManager.FindByIdAsync(userId);
                 if (user == null)
@@ -268,8 +262,8 @@ namespace NemetschekEventManagerBackend.Extensions
                 {
                     return Results.Problem("Error message: " + ex);
                 }
-            }).WithSummary("Gets users info")
-            .WithDescription("Returns the ID, Email, Created at date and Updated At date for every user");
+            }).WithSummary("Gets a user list.")
+            .WithDescription("Returns the ID, Email, Created at date and Updated At date for every user.");
 
             //enpoint-admin makes other users administrators
             app.MapPost("/users/admin/{id}",
@@ -305,8 +299,8 @@ namespace NemetschekEventManagerBackend.Extensions
                 {
                     return Results.Problem("Error message: " + ex);
                 }
-			}).WithSummary("Admin adds new admins")
-            .WithDescription("Only Amins can add new admins as it selects them by ID");
+			}).WithSummary("Admin adds new admins.")
+            .WithDescription("Only Amins can add new admins as it selects them by ID.");
 
             //endpoint-admin removes other admins from administrators
             app.MapDelete("/users/admin/{id}",
@@ -334,8 +328,8 @@ namespace NemetschekEventManagerBackend.Extensions
                     await manager.AddToRoleAsync(user_to_remove!, "Administrator"); // Ensure the user has his role back
 					return Results.BadRequest("Failed to remove user from administrators.");
 				}
-			}).WithSummary("Removes admin")
-            .WithDescription("Only admins remove other admins which are selected by ID as once the admin role is removed the user gets the role 'user'");
+			}).WithSummary("Removes admin.")
+            .WithDescription("Only admins remove other admins which are selected by ID as once the admin role is removed the user gets the role 'User'.");
 		}
 	}
 }
