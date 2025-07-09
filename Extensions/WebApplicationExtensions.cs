@@ -27,6 +27,12 @@ namespace NemetschekEventManagerBackend.Extensions
                 options.RoutePrefix = "docs"; // Swagger UI at https://localhost:<port>/docs
             });
         }
+
+        public static void ConfigureCors(this WebApplication app)
+        {
+            app.UseCors("AllowAll");
+        }
+
         // Map Identity API endpoints
         public static void MapEventEndpoints(this WebApplication app)
         {
