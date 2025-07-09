@@ -157,7 +157,7 @@ namespace NemetschekEventManagerBackend.Extensions
             .WithDescription("Updates all submissions for the authenticated user in the specified event. Returns 404 if not found.");
 
             // Remove user submission from event
-            app.MapDelete("/submissions/{eventId}",
+            app.MapDelete("/submits/{eventId}",
             [Authorize]
             (int eventId, ISubmitService service, ClaimsPrincipal user) =>
             {
