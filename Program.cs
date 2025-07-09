@@ -9,6 +9,7 @@ builder.Services
     .AddAppServices()
     .AddAppDbContext(builder.Configuration)
     .AddAppIdentity()
+    .AddCorsSupport()
     .AddAppSwagger()
     .SetupMailer(builder.Configuration);
 
