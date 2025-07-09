@@ -161,7 +161,7 @@ namespace NemetschekEventManagerBackend.Extensions
             .WithDescription("Updates all submissions for the authenticated user in the specified event. Returns 404 if not found.");
 
             // Remove user submission from event
-            app.MapDelete("/submissions/{eventId}",
+            app.MapDelete("/submits/{eventId}",
             [Authorize]
             (int eventId, ISubmitService service, ClaimsPrincipal user) =>
             {
@@ -174,6 +174,17 @@ namespace NemetschekEventManagerBackend.Extensions
             })
             .WithSummary("Remove current user's submission from event")
             .WithDescription("Removes the current user's submission from the specified event.");
+
+            //Admin delete
+            app.MapDelete("/submissions/{eventId}/{userId}",
+            [Authorize(Roles = "Administrator")]
+            (int eventId, string userId, ISubmitService service, ClaimsPrincipal user) =>
+            {
+                var success = service.RemoveUserFromEvent(eventId, userId);
+                return success ? Results.Ok() : Results.NotFound();
+            })
+            .WithSummary("Remove user submission from event by admin")
+            .WithDescription("Allows an admin to remove a user's submission from a specific event by providing the event ID and user ID.");
 
             // User me
             app.MapGet("/users/me",
@@ -287,7 +298,7 @@ namespace NemetschekEventManagerBackend.Extensions
                     }
 
                     await userManager.RemoveFromRoleAsync(user_to_admin, "User"); // Remove default role if exists
-					var result = await userManager.AddToRoleAsync(user_to_admin, "Administrator");
+					          var result = await userManager.AddToRoleAsync(user_to_admin, "Administrator");
 
                     if (result.Succeeded)
                     {
@@ -295,9 +306,9 @@ namespace NemetschekEventManagerBackend.Extensions
                     }
                     else
                     {
-						await userManager.AddToRoleAsync(user_to_admin, "User"); // Ensure the user has a default role
-						return Results.BadRequest("Failed to make user an administrator.");
-					}
+                    await userManager.AddToRoleAsync(user_to_admin, "User"); // Ensure the user has a default role
+                    return Results.BadRequest("Failed to make user an administrator.");
+              }
 
                 }
                 catch (Exception ex)
@@ -319,21 +330,21 @@ namespace NemetschekEventManagerBackend.Extensions
                 if (user_to_remove == null)
                 {
                     return Results.NotFound("User not found");
-				}
-
-				var result = await manager.RemoveFromRoleAsync(user_to_remove!, "Administrator");
-
-                if (result.Succeeded)
-                {
-                    await manager.AddToRoleAsync(user_to_remove!, "User"); // Ensure the user has a default role
-					return Results.Ok("User has been removed from administrators.");
                 }
-                else
-                {
-                    await manager.AddToRoleAsync(user_to_remove!, "Administrator"); // Ensure the user has his role back
-					return Results.BadRequest("Failed to remove user from administrators.");
-				}
-			}).WithSummary("Removes admin.")
+
+                var result = await manager.RemoveFromRoleAsync(user_to_remove!, "Administrator");
+
+                        if (result.Succeeded)
+                        {
+                            await manager.AddToRoleAsync(user_to_remove!, "User"); // Ensure the user has a default role
+                            return Results.Ok("User has been removed from administrators.");
+                        }
+                        else
+                        {
+                            await manager.AddToRoleAsync(user_to_remove!, "Administrator"); // Ensure the user has his role back
+                  return Results.BadRequest("Failed to remove user from administrators.");
+                }
+            }).WithSummary("Removes admin.")
             .WithDescription("Only admins remove other admins which are selected by ID as once the admin role is removed the user gets the role 'User'.");
 
             // Export submissions of a certain event as a .csv file
