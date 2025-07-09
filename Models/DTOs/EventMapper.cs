@@ -52,6 +52,7 @@ namespace NemetschekEventManagerBackend.Models.DTOs
         {
             return new EventSummaryDto
             {
+                Id = ev.Id,
                 Name = ev.Name,
                 Description = ev.Description,
                 Date = ev.Date,
