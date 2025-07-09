@@ -433,20 +433,14 @@ namespace NemetschekEventManagerBackend.Extensions
             }).WithSummary("Removes admin")
             .WithDescription("Only admins remove other admins which are selected by ID as once the admin role is removed the user gets the role 'user'");
 
-            app.MapDelete("/submits/remove-user-submits/{UserId}", 
+            app.MapDelete("/submits/remove-user-submits/{UserId}",
+            [Authorize(Roles = "Administrator")]
             async (HttpContext httpContext,
             UserManager<User> userManager,
-            RoleManager<IdentityRole> roleManager,
             EventDbContext dbContext,
             string UserId) =>
             {
                 var principal = httpContext.User;
-
-                // Authentication check
-                if (!principal.Identity?.IsAuthenticated ?? true)
-                {
-                    return Results.Unauthorized();
-                }
 
                 // Get current admin ID from claims
                 var adminId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
