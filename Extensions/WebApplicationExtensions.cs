@@ -106,20 +106,6 @@ namespace NemetschekEventManagerBackend.Extensions
                 .WithSummary("Delete event by ID")
                 .WithDescription("Deletes an event using its unique ID. If the event is not found, returns a 404 error.");
 
-            // Remove user submission from event
-            app.MapDelete("/submissions/{eventId}/{userId}",
-            [Authorize]
-            (int eventId,string userId, ISubmitService service, ClaimsPrincipal user) =>
-            {
-                
-
-                var success = service.RemoveUserFromEvent(eventId, userId);
-                return success ? Results.Ok() : Results.NotFound();
-            })
-            .WithSummary("Remove current user's submission from event")
-            .WithDescription("Removes the current user's submission from the specified event.");
-
-
             //// SUBMIT ENDPOINTS
 
 
@@ -172,6 +158,21 @@ namespace NemetschekEventManagerBackend.Extensions
             .WithSummary("Update submission for authenticated user")
             .WithDescription("Updates all submissions for the authenticated user in the specified event. Returns 404 if not found.")
             .RequireAuthorization();
+
+            // Remove user submission from event
+            app.MapDelete("/submissions/{eventId}",
+            [Authorize]
+            (int eventId, ISubmitService service, ClaimsPrincipal user) =>
+            {
+                var userId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub");
+                if (string.IsNullOrEmpty(userId))
+                    return Results.Unauthorized();
+
+                var success = service.RemoveUserFromEvent(eventId, userId);
+                return success ? Results.Ok() : Results.NotFound();
+            })
+            .WithSummary("Remove current user's submission from event")
+            .WithDescription("Removes the current user's submission from the specified event.");
 
             // User me
             app.MapGet("/users/me", async (HttpContext httpContext, UserManager<User> userManager, RoleManager<IdentityRole> roleManager) =>
