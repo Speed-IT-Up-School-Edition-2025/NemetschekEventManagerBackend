@@ -86,4 +86,8 @@ public class EventService : IEventService
         _context.Events.Update(ev);
         return _context.SaveChanges() != 0;
     }
+    public bool Exists(int eventId)
+    {
+        return _context.Events.Any(e => e.Id == eventId);
+    }
 }

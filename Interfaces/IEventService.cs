@@ -11,5 +11,6 @@ namespace NemetschekEventManagerBackend.Interfaces
         List<Event> GetEvents(string searchName, DateTime? date, bool? activeOnly);
         bool RemoveById(int eventId);
         bool Update(int eventId, UpdateEventDto dto);
+        bool Exists(int eventId);
     }
 }
