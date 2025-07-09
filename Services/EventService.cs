@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using NemetschekEventManagerBackend;
 using NemetschekEventManagerBackend.Interfaces;
 using NemetschekEventManagerBackend.Models;
@@ -30,7 +30,6 @@ public class EventService : IEventService
             .Select(e => e.ToSummaryDto())
             .ToList();
     }
-
 
     public List<Event> GetEvents(string searchName, DateTime? date, bool? activeOnly)
     {
@@ -66,10 +65,11 @@ public class EventService : IEventService
         return events;
     }
 
+
     public bool RemoveById(int eventId)
     {
         var ev = GetEventById(eventId);
-        if (ev == null)
+        if (ev == null )
             return false;
 
         _context.Events.Remove(ev);

@@ -1,9 +1,14 @@
 ﻿using Microsoft.AspNetCore.Identity.UI.Services;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using NemetschekEventManagerBackend.Interfaces;
 using NemetschekEventManagerBackend.Models;
 using System.Reflection;
+using System.Text;
 
 namespace NemetschekEventManagerBackend.Extensions
 {
@@ -26,8 +31,13 @@ namespace NemetschekEventManagerBackend.Extensions
         // Add Identity services to the IServiceCollection
         public static IServiceCollection AddAppIdentity(this IServiceCollection services)
         {
-            services.AddIdentityApiEndpoints<User>()
-                    .AddEntityFrameworkStores<EventDbContext>();
+            services.AddIdentityCore<User>()
+                .AddRoles<IdentityRole>()
+                .AddEntityFrameworkStores<EventDbContext>()
+                .AddDefaultTokenProviders();
+
+            services.AddIdentityApiEndpoints<User>();
+
             services.AddAuthorization();
             return services;
         }
@@ -41,7 +51,8 @@ namespace NemetschekEventManagerBackend.Extensions
                 {
                     Title = "Nemetschek Event API",
                     Version = "v1",
-                    Description = "This API stores and manages data for the Nemetschek Event Manager application.",
+                    Description = "This API stores and manages data for the Nemetschek Event Manager application.\n" +
+                    "\n IMPORTANT!!! : To authenticate use \"Bearer {your_access_token}\" (without the quotes and the curly brackets).",
                     Contact = new OpenApiContact
                     {
                         Name = "Mihail Tenev",
@@ -61,23 +72,23 @@ namespace NemetschekEventManagerBackend.Extensions
                 });
 
                 options.AddSecurityRequirement(new OpenApiSecurityRequirement()
-      {
-        {
-          new OpenApiSecurityScheme
-          {
-            Reference = new OpenApiReference
               {
-                Type = ReferenceType.SecurityScheme,
-                Id = "Bearer"
-              },
-              Scheme = "oauth2",
-              Name = "Bearer",
-              In = ParameterLocation.Header,
+                {
+                  new OpenApiSecurityScheme
+                  {
+                    Reference = new OpenApiReference
+                      {
+                        Type = ReferenceType.SecurityScheme,
+                        Id = "Bearer"
+                      },
+                      Scheme = "oauth2",
+                      Name = "Bearer",
+                      In = ParameterLocation.Header,
 
-            },
-            new List<string>()
-          }
-        });
+                    },
+                    new List<string>()
+                  }
+                });
 
                 var xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
                 options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));

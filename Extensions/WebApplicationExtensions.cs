@@ -1,7 +1,17 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using NemetschekEventManagerBackend.Interfaces;
 using System.Security.Claims;
 using NemetschekEventManagerBackend.Models.DTOs;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using NemetschekEventManagerBackend.Interfaces;
+using NemetschekEventManagerBackend.Models;
+using NemetschekEventManagerBackend.Models.JSON;
+using Swashbuckle.AspNetCore.Filters;
+using System.Data;
+using System.Security.Claims;
+using System.Linq;
 
 namespace NemetschekEventManagerBackend.Extensions
 {
@@ -36,8 +46,9 @@ namespace NemetschekEventManagerBackend.Extensions
             .WithDescription("Fetches all events from the database, excluding fields and submissions.");
 
             // Get events with filters (optional parameters)
-            app.MapGet("/events/search", (
-                IEventService service,
+            app.MapGet("/events/search",
+            [Authorize]
+            (IEventService service,
                 string? searchName,
                 DateTime? date,
                 bool? activeOnly) =>
@@ -48,7 +59,9 @@ namespace NemetschekEventManagerBackend.Extensions
                 .WithDescription("Fetches events based on optional filters like event name, date, and whether the event is still active.");
 
             // Get event by ID
-            app.MapGet("/events/{id}", (IEventService service, int id) =>
+            app.MapGet("/events/{id}",
+            [Authorize]
+            (IEventService service, int id) =>
             {
                 var ev = service.GetEventById(id);
                 return ev is not null ? Results.Ok(ev) : Results.NotFound();
@@ -57,7 +70,9 @@ namespace NemetschekEventManagerBackend.Extensions
                 .WithDescription("Fetches an event by its unique identifier (ID). If the event doesn't exist, returns a 404 error.");
 
             //Create new event
-            app.MapPost("/events", (IEventService service, CreateEventDto dto) =>
+            app.MapPost("/events",
+            [Authorize(Roles = "Administrator")]
+            (IEventService service, Event newEvent) =>
             {
                 if (string.IsNullOrWhiteSpace(dto.Name))
                     return Results.BadRequest("Event name is required.");
@@ -75,16 +90,27 @@ namespace NemetschekEventManagerBackend.Extensions
 
 
             // Update event by ID (primitive params)
-            app.MapPut("/events/{id}", (IEventService service, int id, UpdateEventDto dto) =>
+            app.MapPut("/events/{id}",
+            [Authorize(Roles = "Administrator")]
+            (
+                IEventService service,
+                int id,
+                string name,
+                string description,
+                DateTime? date,
+                DateTime? signUpEndDate,
+                string location) =>
             {
                 var success = service.Update(id, dto);
                 return success ? Results.Ok() : Results.NotFound();
             })
             .WithSummary("Update event by ID")
-            .WithDescription("Updates an existing event using its ID and provided details. Returns 404 if not found.");
+            .WithDescription("Updates an existing event using its ID and provided details. Returns 404 if the event is not found.");
 
             // Delete event by ID
-            app.MapDelete("/events/{id}", (IEventService service, int id) =>
+            app.MapDelete("/events/{id}",
+            [Authorize(Roles = "Administrator")]
+            (IEventService service, int id) =>
             {
                 var success = service.RemoveById(id);
                 return success ? Results.Ok() : Results.NotFound();
@@ -92,10 +118,27 @@ namespace NemetschekEventManagerBackend.Extensions
                 .WithSummary("Delete event by ID")
                 .WithDescription("Deletes an event using its unique ID. If the event is not found, returns a 404 error.");
 
+            // Remove user submission from event
+            app.MapDelete("/submissions/{eventId}/{userId}",
+            [Authorize]
+            (int eventId,string userId, ISubmitService service, ClaimsPrincipal user) =>
+            {
+                
+
+                var success = service.RemoveUserFromEvent(eventId, userId);
+                return success ? Results.Ok() : Results.NotFound();
+            })
+            .WithSummary("Remove current user's submission from event")
+            .WithDescription("Removes the current user's submission from the specified event.");
+
+
             //// SUBMIT ENDPOINTS
 
+
             // GET submissions by eventId
-            app.MapGet("/submits/{eventId}", (ISubmitService service, int eventId) =>
+            app.MapGet("/submits/{eventId}",
+            [Authorize]
+            (ISubmitService service, int eventId) =>
             {
                 var submits = service.GetSubmitsByEventId(eventId);
                 return submits.Count == 0
@@ -107,7 +150,9 @@ namespace NemetschekEventManagerBackend.Extensions
             .RequireAuthorization();
 
             // Create new submit for authenticated user
-            app.MapPost("/submits/{eventId}", (int eventId, CreateSubmitDto dto, ISubmitService service, ClaimsPrincipal user) =>
+            app.MapPost("/submits/{eventId}",
+            [Authorize]
+            (int eventId, CreateSubmitDto dto, ISubmitService service, ClaimsPrincipal user) =>
             {
                 var userId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub");
                 if (string.IsNullOrEmpty(userId))
@@ -123,7 +168,9 @@ namespace NemetschekEventManagerBackend.Extensions
             .RequireAuthorization();
 
             // PUT endpoint
-            app.MapPut("/submits/{eventId}", (int eventId, UpdateSubmitDto dto, ISubmitService service, ClaimsPrincipal user) =>
+            app.MapPut("/submits/{eventId}",
+            [Authorize]
+            (int eventId, UpdateSubmitDto dto, ISubmitService service, ClaimsPrincipal user) =>
             {
                 var userId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub");
                 if (string.IsNullOrEmpty(userId))
@@ -141,22 +188,166 @@ namespace NemetschekEventManagerBackend.Extensions
             // User me
             app.MapGet("/user/me", (HttpContext httpContext) =>
             {
-                var user = httpContext.User;
+                var principal = httpContext.User;
 
-                if (!user.Identity?.IsAuthenticated ?? true)
+                if (!principal.Identity?.IsAuthenticated ?? true)
                 {
                     return Results.Unauthorized();
                 }
 
-                var userId = user.FindFirst("oid")?.Value;
-                var email = user.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+                var userId = principal.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                var email = principal.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+
+                if (userId == null)
+                    return Results.Unauthorized();
+
+                var user = await userManager.FindByIdAsync(userId);
+                if (user == null)
+                    return Results.NotFound("User not found");
+
+                // Set times only if set to null
+                if (user.CreatedAt == null)
+                {
+                    user.CreatedAt = DateTime.UtcNow;
+                }
+
+                if (user.UpdatedAt == null)
+                {
+                    user.UpdatedAt = DateTime.UtcNow;
+                }
+
+                // Save changes to DB
+                await userManager.UpdateAsync(user);
+
+                var roles = await userManager.GetRolesAsync(user);
+
+                // If the user has no roles, assign "User"
+                if (roles.Count == 0)
+                {
+                    if (!await roleManager.RoleExistsAsync("User"))
+                    {
+                        await roleManager.CreateAsync(new IdentityRole("User"));
+                    }
+
+                    var result = await userManager.AddToRoleAsync(user, "User");
+                    if (!result.Succeeded)
+                    {
+                        return Results.Problem("Failed to assign default role.");
+                    }
+
+                    roles = await userManager.GetRolesAsync(user); // Re-fetch roles
+                }
 
                 return Results.Ok(new
                 {
-                    UserId = userId,
-                    Email = email
+                    UserId = user.Id,
+                    Email = user.Email,
+                    Roles = roles,
+                    CreatedAt = user.CreatedAt,
+                    UpdatedAt = user.UpdatedAt
                 });
-            });
-        }
-    }
+            }).WithSummary("Gets information for the current user")
+            .WithDescription("Gives UserID, Email, Role, Created At date and Updated At date. If the user doesn't have a role, it assigns the role \"User\".");
+
+            //enpoint to get all users
+            app.MapGet("/users/info",
+            [Authorize(Roles = "Administrator")]
+            async(UserManager<User> manager) =>
+            {
+                try
+                {
+                    var users = await manager.Users.ToListAsync();
+
+                    var userInfos = new List<object>();
+
+                    foreach (var user in users)
+                    {
+                        var roles = await manager.GetRolesAsync(user);
+
+                        userInfos.Add(new
+                        {
+                            ID = user.Id,
+                            Email = user.Email,
+                            Roles = roles,
+                            CreatedAT = user.CreatedAt,
+                            UpdatedAT = user.UpdatedAt
+                        });
+                    }
+
+                    return Results.Ok(userInfos);
+                }
+                catch (Exception ex)
+                {
+                    return Results.Problem("Error message: " + ex);
+                }
+            }).WithSummary("Gets users info")
+            .WithDescription("Returns the ID, Email, Created at date and Updated At date for every user");
+
+            //enpoint-admin makes other users administrators
+            app.MapPost("/users/admin/{id}",
+            [Authorize(Roles = "Administrator")]
+            async (UserManager<User> userManager, string id) =>
+            {
+                try
+                {
+                    var users = await userManager.Users.ToListAsync();
+
+                    var user_to_admin = users.FirstOrDefault(users => users.Id.Equals(id));
+
+                    if (user_to_admin == null)
+                    {
+                        return Results.NotFound("User not found");
+                    }
+
+                    await userManager.RemoveFromRoleAsync(user_to_admin, "User"); // Remove default role if exists
+					var result = await userManager.AddToRoleAsync(user_to_admin, "Administrator");
+
+                    if (result.Succeeded)
+                    {
+                        return Results.Ok("User has been made an administrator.");
+                    }
+                    else
+                    {
+						await userManager.AddToRoleAsync(user_to_admin, "User"); // Ensure the user has a default role
+						return Results.BadRequest("Failed to make user an administrator.");
+					}
+
+                }
+                catch (Exception ex)
+                {
+                    return Results.Problem("Error message: " + ex);
+                }
+			}).WithSummary("Admin adds new admins")
+            .WithDescription("Only Amins can add new admins as it selects them by ID");
+
+            //endpoint-admin removes other admins from administrators
+            app.MapDelete("/users/admin/{id}",
+            [Authorize(Roles = "Administrator")]
+            async (UserManager<User> manager, string id) =>
+            {
+                var users = await manager.Users.ToListAsync();
+
+                var user_to_remove = users.FirstOrDefault(users => users.Id.Equals(id));
+
+                if (user_to_remove == null)
+                {
+                    return Results.NotFound("User not found");
+				}
+
+				var result = await manager.RemoveFromRoleAsync(user_to_remove!, "Administrator");
+
+                if (result.Succeeded)
+                {
+                    await manager.AddToRoleAsync(user_to_remove!, "User"); // Ensure the user has a default role
+					return Results.Ok("User has been removed from administrators.");
+                }
+                else
+                {
+                    await manager.AddToRoleAsync(user_to_remove!, "Administrator"); // Ensure the user has his role back
+					return Results.BadRequest("Failed to remove user from administrators.");
+				}
+			}).WithSummary("Removes admin")
+            .WithDescription("Only admins remove other admins which are selected by ID as once the admin role is removed the user gets the role 'user'");
+		}
+	}
 }

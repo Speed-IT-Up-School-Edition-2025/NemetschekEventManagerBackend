@@ -7,4 +7,5 @@ public interface ISubmitService
     Submit? GetSubmitByEventAndUser(int eventId, string userId);
     bool Create(int eventId, string userId, CreateSubmitDto dto);
     bool UpdateSubmission(int eventId, string userId, UpdateSubmitDto dto);
+    bool RemoveUserFromEvent(int eventId, string userId);
 }

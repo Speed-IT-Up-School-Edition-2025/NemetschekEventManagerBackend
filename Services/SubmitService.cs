@@ -1,4 +1,4 @@
-﻿using NemetschekEventManagerBackend;
+using NemetschekEventManagerBackend;
 using NemetschekEventManagerBackend.Models;
 using NemetschekEventManagerBackend.Models.DTOs;
 
@@ -47,5 +47,17 @@ public class SubmitService : ISubmitService
 
         _context.Submits.Update(submit);
         return _context.SaveChanges() > 0;
+    }
+    
+    public bool RemoveUserFromEvent(int eventId, string userId)
+    {
+        var submission = _context.Submits
+            .FirstOrDefault(s => s.EventId == eventId && s.UserId == userId);
+
+        if (submission == null)
+                return false;
+
+        _context.Submits.Remove(submission);
+        return _context.SaveChanges() != 0;
     }
 }
