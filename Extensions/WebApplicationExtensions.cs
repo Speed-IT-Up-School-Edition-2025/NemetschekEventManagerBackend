@@ -171,6 +171,17 @@ namespace NemetschekEventManagerBackend.Extensions
             .WithSummary("Remove current user's submission from event")
             .WithDescription("Removes the current user's submission from the specified event.");
 
+            //Admin delete
+            app.MapDelete("/submissions/{eventId}/{userId}",
+            [Authorize(Roles = "Administrator")]
+            (int eventId, string userId, ISubmitService service, ClaimsPrincipal user) =>
+            {
+                var success = service.RemoveUserFromEvent(eventId, userId);
+                return success ? Results.Ok() : Results.NotFound();
+            })
+            .WithSummary("Remove user submission from event by admin")
+            .WithDescription("Allows an admin to remove a user's submission from a specific event by providing the event ID and user ID.");
+
             // User me
             app.MapGet("/users/me",
             [Authorize]
@@ -331,19 +342,6 @@ namespace NemetschekEventManagerBackend.Extensions
 				}
 			}).WithSummary("Removes admin.")
             .WithDescription("Only admins remove other admins which are selected by ID as once the admin role is removed the user gets the role 'User'.");
-
-            app.MapDelete("/submissions/{eventId}/{userId}",
-            [Authorize(Roles = "Administrator")]
-            (int eventId, string userId, ISubmitService service, ClaimsPrincipal user) =>
-            {
-                var success = service.RemoveUserFromEvent(eventId, userId);
-                return success ? Results.Ok() : Results.NotFound();
-            })
-            .WithSummary("Remove user submission from event by admin")
-            .WithDescription("Allows an admin to remove a user's submission from a specific event by providing the event ID and user ID.");
-
-
-
         }
 	}
 }
