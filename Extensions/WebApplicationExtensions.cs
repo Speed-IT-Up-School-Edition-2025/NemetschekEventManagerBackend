@@ -28,11 +28,6 @@ namespace NemetschekEventManagerBackend.Extensions
             });
         }
 
-        public static void ConfigureCors(this WebApplication app)
-        {
-            app.UseCors("AllowAll");
-        }
-
         // Map Identity API endpoints
         public static void MapEventEndpoints(this WebApplication app)
         {

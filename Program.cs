@@ -31,6 +31,8 @@ if (app.Environment.IsDevelopment())
     //Swagger in DEV
     app.ConfigureSwagger();
 }
+// CORS support
+app.UseCors("AllowAll");
 
 // Use authentication & authorization
 app.MapIdentityApi<User>();
