@@ -43,7 +43,7 @@ namespace NemetschekEventManagerBackend.Extensions
                 DateTime? toDate,
                 bool? activeOnly,
                 bool alphabetical = false,
-                bool sortDescending = true
+                bool sortDescending = false
             ) =>
             {
                 return service.GetEvents(fromDate, toDate, activeOnly, alphabetical, sortDescending);
