@@ -8,7 +8,7 @@ namespace NemetschekEventManagerBackend.Interfaces
         bool Create(Event newEvent);
         Event? GetEventById(int eventId);
         List<EventSummaryDto> GetEvents();
-        List<Event> GetEvents(string searchName, DateTime? date, bool? activeOnly);
+        List<EventSummaryDto> GetEvents(DateTime? fromDate, DateTime? toDate, bool? activeOnly, bool alphabetical = false, bool sortDescending = false);
         bool RemoveById(int eventId);
         bool Update(int eventId, UpdateEventDto dto);
         bool Exists(int eventId);

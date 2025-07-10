@@ -12,7 +12,7 @@ namespace NemetschekEventManagerBackend.Models.DTOs
                 Description = dto.Description ?? string.Empty,
                 Location = dto.Location ?? string.Empty,
                 Date = dto.Date,
-                SignUpDeadline = dto.SignUpDeadline ?? dto.Date,
+                SignUpDeadline = dto.SignUpDeadline ?? dto.Date ?? DateTime.UtcNow,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
                 Fields = dto.Fields?.Select(f => new Field

@@ -44,17 +44,23 @@ namespace NemetschekEventManagerBackend.Extensions
             .WithDescription("Fetches all events from the database, excluding fields and submissions.");
 
             // Get events with filters (optional parameters)
-            app.MapGet("/events/search",
+            // Get events with filters (optional parameters)
+            app.MapGet("/events/sort",
             [Authorize]
-            (IEventService service,
-                string? searchName,
-                DateTime? date,
-                bool? activeOnly) =>
+            (
+                IEventService service,
+                DateTime? fromDate,
+                DateTime? toDate,
+                bool? activeOnly,
+                bool alphabetical = false,
+                bool sortDescending = false
+            ) =>
             {
-                return service.GetEvents(searchName!, date, activeOnly);
+                return service.GetEvents(fromDate, toDate, activeOnly, alphabetical, sortDescending);
             })
-                .WithSummary("Search for events")
-                .WithDescription("Fetches events based on optional filters like event name, date, and whether the event is still active.");
+            .WithSummary("Search for events")
+            .WithDescription("Fetches events with optional filters: date range, activity status, and sorting options.");
+
 
             // Get event by ID
             app.MapGet("/events/{id}",
