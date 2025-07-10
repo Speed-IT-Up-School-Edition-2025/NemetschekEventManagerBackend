@@ -27,33 +27,29 @@ namespace NemetschekEventManagerBackend.Extensions
                 options.RoutePrefix = "docs"; // Swagger UI at https://localhost:<port>/docs
             });
         }
+
         // Map Identity API endpoints
         public static void MapEventEndpoints(this WebApplication app)
         {
             ////EVENT ENDPOINTS
 
-            // Get all events
+            // Get events with filters (optional parameters)
             app.MapGet("/events",
             [Authorize]
-            (IEventService service) =>
+            (
+                IEventService service,
+                DateTime? fromDate,
+                DateTime? toDate,
+                bool? activeOnly,
+                bool alphabetical = false,
+                bool sortDescending = true
+            ) =>
             {
-                return Results.Ok(service.GetEvents());
+                return service.GetEvents(fromDate, toDate, activeOnly, alphabetical, sortDescending);
             })
-            .WithSummary("Get all events")
-            .WithDescription("Fetches all events from the database, excluding fields and submissions.");
+            .WithSummary("Search for events")
+            .WithDescription("Fetches events with optional filters: date range, activity status, and sorting options.");
 
-            // Get events with filters (optional parameters)
-            app.MapGet("/events/search",
-            [Authorize]
-            (IEventService service,
-                string? searchName,
-                DateTime? date,
-                bool? activeOnly) =>
-            {
-                return service.GetEvents(searchName!, date, activeOnly);
-            })
-                .WithSummary("Search for events")
-                .WithDescription("Fetches events based on optional filters like event name, date, and whether the event is still active.");
 
             // Get event by ID
             app.MapGet("/events/{id}",
