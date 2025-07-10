@@ -1,17 +1,21 @@
+using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
 using NemetschekEventManagerBackend;
-using NemetschekEventManagerBackend.Interfaces;
 using NemetschekEventManagerBackend.Models;
 using NemetschekEventManagerBackend.Models.DTOs;
+using System.Threading.Tasks;
 
 public class EventService : IEventService
 {
     private readonly EventDbContext _context;
+    private readonly GmailEmailSender _emailSender;
+
 
     public EventService(EventDbContext context)
     {
         _context = context;
     }
+
     public bool Create(Event newEvent)
     {
         _context.Events.Add(newEvent);
@@ -66,15 +70,50 @@ public class EventService : IEventService
     }
 
 
-    public bool RemoveById(int eventId)
+    public async Task<bool> RemoveById(int eventId, IEmailSender _emailSender)
     {
-        var ev = GetEventById(eventId);
-        if (ev == null )
+        var ev = await _context.Events
+            .Include(e => e.Submissions!)  // Add null-forgiving operator here
+            .ThenInclude(s => s!.User)     // Add null-forgiving operator here too
+            .FirstOrDefaultAsync(e => e.Id == eventId);
+
+        if (ev == null)
             return false;
 
+        // Send notifications to all users who submitted to this event
+        foreach (var submission in ev.Submissions!)
+        {
+            if (submission.User == null || string.IsNullOrEmpty(submission.User.Email))
+                continue;
+
+            // Extract username from email (everything before '@')
+            var email = submission.User.Email;
+            var userName = email.Contains('@')
+                ? email.Substring(0, email.IndexOf('@'))
+                : "User";
+
+            // Use the Send method instead of SendEmailAsync
+            await _emailSender.SendEmailAsync(
+                email: email,
+                subject: $"Event Cancelled: {ev.Name}",
+                htmlMessage: $@"
+                    <html>
+                        <body>
+                            <p>Dear {userName},</p>
+                            <p>We regret to inform you that the event <strong>{ev.Name}</strong> scheduled for {ev.Date:MMMM d, yyyy} has been cancelled.</p>
+                            <p>As a result, your submission for this event has been <strong>permanently deleted</strong>.</p>
+                            <p>If you have any questions, please contact an administrator.</p>
+                            <p>Sincerely,<br>Event Management Team</p>
+                        </body>
+                    </html>"
+            );
+        }
+
+        // Remove the event
         _context.Events.Remove(ev);
-        return _context.SaveChanges() != 0;
+        return await _context.SaveChangesAsync() != 0;
     }
+
 
     public bool Update(int eventId, UpdateEventDto dto)
     {

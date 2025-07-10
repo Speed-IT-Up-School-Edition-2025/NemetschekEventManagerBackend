@@ -12,7 +12,7 @@ using NemetschekEventManagerBackend;
 namespace NemetschekEventManagerBackend.Migrations
 {
     [DbContext(typeof(EventDbContext))]
-    [Migration("20250708134257_Initial")]
+    [Migration("20250709124027_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
