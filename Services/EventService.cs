@@ -3,6 +3,7 @@ using NemetschekEventManagerBackend;
 using NemetschekEventManagerBackend.Interfaces;
 using NemetschekEventManagerBackend.Models;
 using NemetschekEventManagerBackend.Models.DTOs;
+using NemetschekEventManagerBackend.Models.JSON;
 using System.Globalization;
 
 public class EventService : IEventService
@@ -35,7 +36,7 @@ public class EventService : IEventService
     public List<EventSummaryDto> GetEvents(DateTime? fromDate, DateTime? toDate, bool? activeOnly, bool alphabetical = false, bool sortDescending = false)
     {
         // Load events from the database
-        List<Event> events = _context.Events.ToList();
+        List<Event> events = _context.Events.Include(e => e.Submissions).ToList();
 
         // Filter by date range
         if (fromDate.HasValue)
