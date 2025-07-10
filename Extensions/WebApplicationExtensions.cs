@@ -1,8 +1,7 @@
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Authorization;
 using ClosedXML.Excel;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
+
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using NemetschekEventManagerBackend.Interfaces;
@@ -178,23 +177,11 @@ namespace NemetschekEventManagerBackend.Extensions
             [Authorize(Roles = "Administrator")]
             async (int eventId, string userId, ISubmitService service, ClaimsPrincipal user, IEmailSender emailSender) =>
             {
-                
+
                 if (string.IsNullOrEmpty(userId))
                     return Results.Unauthorized();
 
                 var success = await service.AdminRemoveUserFromEvent(eventId, userId, emailSender);
-                return success ? Results.Ok() : Results.NotFound();
-            })
-            .WithSummary("Remove user submission from event by admin")
-            .WithDescription("Allows an admin to remove a user's submission from a specific event by providing the event ID and user ID.");
-
-
-            //Admin delete
-            app.MapDelete("/submissions/{eventId}/{userId}",
-            [Authorize(Roles = "Administrator")]
-            (int eventId, string userId, ISubmitService service, ClaimsPrincipal user) =>
-            {
-                var success = service.RemoveUserFromEvent(eventId, userId);
                 return success ? Results.Ok() : Results.NotFound();
             })
             .WithSummary("Remove user submission from event by admin")

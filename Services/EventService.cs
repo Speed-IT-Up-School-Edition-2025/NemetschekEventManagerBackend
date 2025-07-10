@@ -3,13 +3,13 @@ using Microsoft.EntityFrameworkCore;
 using NemetschekEventManagerBackend;
 using NemetschekEventManagerBackend.Models;
 using NemetschekEventManagerBackend.Models.DTOs;
+using NemetschekEventManagerBackend.Interfaces;
 using System.Threading.Tasks;
 using System.Globalization;
 
 public class EventService : IEventService
 {
     private readonly EventDbContext _context;
-    private readonly GmailEmailSender _emailSender;
 
 
     public EventService(EventDbContext context)
