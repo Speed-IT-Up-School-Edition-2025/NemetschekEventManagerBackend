@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Identity.UI.Services;
+using Microsoft.AspNetCore.Authorization;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -6,8 +8,8 @@ using Microsoft.EntityFrameworkCore;
 using NemetschekEventManagerBackend.Interfaces;
 using NemetschekEventManagerBackend.Models;
 using NemetschekEventManagerBackend.Models.DTOs;
-using System.Diagnostics;
 using System.Security.Claims;
+using System.Diagnostics;
 using System.Text;
 
 namespace NemetschekEventManagerBackend.Extensions
@@ -95,16 +97,15 @@ namespace NemetschekEventManagerBackend.Extensions
             .WithDescription("Updates an existing event using its ID and provided details. Returns 404 if not found.");
 
 
+
             // Delete event by ID
             app.MapDelete("/events/{id}",
             [Authorize(Roles = "Administrator")]
-            (IEventService service, int id) =>
+            async (IEventService service, int id, IEmailSender emailSender) =>
             {
-                var success = service.RemoveById(id);
+                var success = await service.RemoveById(id, emailSender);
                 return success ? Results.Ok() : Results.NotFound();
-            })
-                .WithSummary("Delete event by ID")
-                .WithDescription("Deletes an event using its unique ID. If the event is not found, returns a 404 error.");
+            });
 
             //// SUBMIT ENDPOINTS
 
@@ -156,20 +157,37 @@ namespace NemetschekEventManagerBackend.Extensions
             .WithSummary("Update submission for authenticated user")
             .WithDescription("Updates all submissions for the authenticated user in the specified event. Returns 404 if not found.");
 
-            // Remove user submission from event
-            app.MapDelete("/submits/{eventId}",
-            [Authorize]
-            (int eventId, ISubmitService service, ClaimsPrincipal user) =>
+            //Removes a subbmit user from an event
+           app.MapDelete("/submissions/{eventId}",
+           [Authorize]
+           async (int eventId, ISubmitService service, ClaimsPrincipal user, IEmailSender emailSender) =>
+           {
+               var userId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub");
+               if (string.IsNullOrEmpty(userId))
+                   return Results.Unauthorized();
+
+               var success = await service.RemoveUserFromEvent(eventId, userId, emailSender);
+                return success ? Results.Ok() : Results.NotFound();
+            })
+            .WithSummary("Removes user from event")
+            .WithDescription("Allows user to remove himself from an event and notifies the user by email.");
+
+
+            //Admin delete
+            app.MapDelete("/submissions/{eventId}/{userId}",
+            [Authorize(Roles = "Administrator")]
+            async (int eventId, string userId, ISubmitService service, ClaimsPrincipal user, IEmailSender emailSender) =>
             {
-                var userId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub");
+                
                 if (string.IsNullOrEmpty(userId))
                     return Results.Unauthorized();
 
-                var success = service.RemoveUserFromEvent(eventId, userId);
+                var success = await service.AdminRemoveUserFromEvent(eventId, userId, emailSender);
                 return success ? Results.Ok() : Results.NotFound();
             })
-            .WithSummary("Remove current user's submission from event")
-            .WithDescription("Removes the current user's submission from the specified event.");
+            .WithSummary("Remove user submission from event by admin")
+            .WithDescription("Allows an admin to remove a user's submission from a specific event by providing the event ID and user ID.");
+
 
             //Admin delete
             app.MapDelete("/submissions/{eventId}/{userId}",
@@ -185,9 +203,9 @@ namespace NemetschekEventManagerBackend.Extensions
             // User me
             app.MapGet("/users/me",
             [Authorize]
-            async 
-            (HttpContext httpContext, 
-            UserManager<User> userManager, 
+            async
+            (HttpContext httpContext,
+            UserManager<User> userManager,
             RoleManager<IdentityRole> roleManager) =>
             {
                 var principal = httpContext.User;
@@ -246,7 +264,7 @@ namespace NemetschekEventManagerBackend.Extensions
             //enpoint to get all users
             app.MapGet("/users/info",
             [Authorize(Roles = "Administrator")]
-            async(UserManager<User> manager) =>
+            async (UserManager<User> manager) =>
             {
                 try
                 {
@@ -295,23 +313,21 @@ namespace NemetschekEventManagerBackend.Extensions
 
                     await userManager.RemoveFromRoleAsync(user_to_admin, "User"); // Remove default role if exists
 					          var result = await userManager.AddToRoleAsync(user_to_admin, "Administrator");
-
                     if (result.Succeeded)
                     {
                         return Results.Ok("User has been made an administrator.");
                     }
                     else
                     {
-                    await userManager.AddToRoleAsync(user_to_admin, "User"); // Ensure the user has a default role
-                    return Results.BadRequest("Failed to make user an administrator.");
-              }
-
+                        await userManager.AddToRoleAsync(user_to_admin, "User"); // Ensure the user has a default role
+                        return Results.BadRequest("Failed to make user an administrator.");
+                    }
                 }
                 catch (Exception ex)
                 {
                     return Results.Problem("Error message: " + ex);
                 }
-			}).WithSummary("Admin adds new admins.")
+            }).WithSummary("Admin adds new admins.")
             .WithDescription("Only Amins can add new admins as it selects them by ID.");
 
             //endpoint-admin removes other admins from administrators
@@ -373,7 +389,6 @@ namespace NemetschekEventManagerBackend.Extensions
                 foreach (var name in submissionNames)
                 {
                     csvBuilder.Append($",\"{name.Replace("\"", "\"\"")}\"");
-                    Debug.WriteLine(name);
                 }
                 csvBuilder.AppendLine();
 
@@ -461,8 +476,7 @@ namespace NemetschekEventManagerBackend.Extensions
 
                     var submissionsDict = (summary.Submissions ?? []).ToDictionary(
                     s => s.Name ?? "",
-                    s => s.Options != null ? string.Join(Environment.NewLine, s.Options) : ""
-);
+                    s => s.Options != null ? string.Join(Environment.NewLine, s.Options) : "");
 
                     for (int i = 0; i < submissionNames.Count; i++)
                     {
