@@ -7,7 +7,7 @@ namespace NemetschekEventManagerBackend.Models
 {
     public class Submit
     {
-        [Key,]
+        [Key]
         public int EventId { get; set; }
         [Key]
         public string? UserId { get; set; }

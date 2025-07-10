@@ -7,11 +7,14 @@ namespace NemetschekEventManagerBackend;
 
 public interface IEventService
 {
-    bool Create(Event newEvent);
-    Event? GetEventById(int eventId);
-    List<EventSummaryDto> GetEvents();
-    List<Event> GetEvents(string searchName, DateTime? date, bool? activeOnly);
-    Task<bool> RemoveById(int eventId, IEmailSender _emailSender);
-    bool Update(int eventId, UpdateEventDto dto);
-
+    public interface IEventService
+    {
+        bool Create(Event newEvent);
+        Event? GetEventById(int eventId);
+        List<EventSummaryDto> GetEvents();
+        List<EventSummaryDto> GetEvents(DateTime? fromDate, DateTime? toDate, bool? activeOnly, bool alphabetical = false, bool sortDescending = false);
+        Task<bool> RemoveById(int eventId, IEmailSender _emailSender);
+        bool Update(int eventId, UpdateEventDto dto);
+        bool Exists(int eventId);
+    }
 }

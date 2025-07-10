@@ -40,6 +40,21 @@ namespace NemetschekEventManagerBackend.Extensions
             services.AddAuthorization();
             return services;
         }
+
+        public static IServiceCollection AddCorsSupport(this IServiceCollection services)
+        {
+            services.AddCors(options =>
+            {
+                options.AddPolicy("AllowAll", policy =>
+                {
+                    policy.AllowAnyOrigin()
+                          .AllowAnyMethod()
+                          .AllowAnyHeader();
+                });
+            });
+            return services;
+        }
+
         // Add Swagger services to the IServiceCollection
         public static IServiceCollection AddAppSwagger(this IServiceCollection services)
         {
