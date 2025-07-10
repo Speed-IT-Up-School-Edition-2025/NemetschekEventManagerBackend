@@ -332,6 +332,13 @@ namespace NemetschekEventManagerBackend.Extensions
                     return Results.NotFound("User not found");
                 }
 
+                const string seededAdminEmail = "admin@example.com";
+
+                if (user_to_remove.Email == seededAdminEmail)
+                {
+                    return Results.BadRequest("Cannot remove the original administrator.");
+                }
+
                 var result = await manager.RemoveFromRoleAsync(user_to_remove!, "Administrator");
 
                         if (result.Succeeded)
@@ -347,7 +354,7 @@ namespace NemetschekEventManagerBackend.Extensions
             }).WithSummary("Removes admin.")
             .WithDescription("Only admins remove other admins which are selected by ID as once the admin role is removed the user gets the role 'User'.");
 
-            // Export submissions of a certain event as a .csv file
+            // Export submits of a certain event as a .csv file
             app.MapGet("/csv/{eventId}",
             [Authorize(Roles = "Administrator")]
             (HttpContext httpContext,
@@ -362,8 +369,8 @@ namespace NemetschekEventManagerBackend.Extensions
 
                 var data = submitService.GetSubmitsByEventId(eventId);
 
-                // Gather all unique submission names (to build the header row)
-                var submissionNames = data
+                // Get all unique submission names (header columns)
+                var submitNames = data
                     .SelectMany(d => d.Submissions ?? [])
                     .Select(s => s.Name ?? "")
                     .Distinct()
@@ -374,7 +381,7 @@ namespace NemetschekEventManagerBackend.Extensions
 
                 // Header
                 csvBuilder.Append("Date");
-                foreach (var name in submissionNames)
+                foreach (var name in submitNames)
                 {
                     csvBuilder.Append($",\"{name.Replace("\"", "\"\"")}\"");
                     Debug.WriteLine(name);
@@ -392,7 +399,7 @@ namespace NemetschekEventManagerBackend.Extensions
                         s => s.Options != null ? string.Join("; \n", s.Options.Select(o => o.Replace("\"", "\"\""))) : ""
                     );
 
-                    foreach (var name in submissionNames)
+                    foreach (var name in submitNames)
                     {
                         if (submissionsDict.TryGetValue(name, out var options))
                             csvBuilder.Append($",\"{options}\"");
@@ -407,7 +414,6 @@ namespace NemetschekEventManagerBackend.Extensions
                 var csvString = csvBuilder.ToString();
                 var csvBytes = utf8WithBom.GetBytes(csvString);
 
-                // Set content headers explicitly for correct encoding
                 httpContext.Response.Headers.ContentType = "text/csv; charset=utf-8";
                 httpContext.Response.Headers.ContentDisposition = "attachment; filename=\"submissions.csv\"";
 
@@ -416,7 +422,7 @@ namespace NemetschekEventManagerBackend.Extensions
             }).WithSummary("Exports all submits for a certain event in .csv file.")
             .WithDescription("Exports all submits for a certain event in .csv file. If the event doesn't exist it return code 404.");
 
-            // Export submissions of a event as a .xlsx file
+            // Export submits of a event as a .xlsx file
 
             app.MapGet("/xlsx/{eventId}",
             [Authorize(Roles = "Administrator")]
@@ -432,8 +438,8 @@ namespace NemetschekEventManagerBackend.Extensions
 
                 var data = submitService.GetSubmitsByEventId(eventId);
 
-                // Collect all unique submission names (columns)
-                var submissionNames = data
+                // Get all unique submission names (columns)
+                var submitNames = data
                     .SelectMany(d => d.Submissions ?? [])
                     .Select(s => s.Name ?? "")
                     .Distinct()
@@ -445,12 +451,12 @@ namespace NemetschekEventManagerBackend.Extensions
 
                 // Header row
                 worksheet.Cell(1, 1).Value = "Date";
-                for (int i = 0; i < submissionNames.Count; i++)
+                for (int i = 0; i < submitNames.Count; i++)
                 {
-                    worksheet.Cell(1, i + 2).Value = submissionNames[i];
+                    worksheet.Cell(1, i + 2).Value = submitNames[i];
                 }
 
-                int totalColumns = submissionNames.Count + 1;
+                int totalColumns = submitNames.Count + 1;
                 var headerRange = worksheet.Range(1, 1, 1, totalColumns);
                 headerRange.Style.Font.Bold = true;
                 headerRange.Style.Fill.BackgroundColor = XLColor.LightBlue;
@@ -468,9 +474,9 @@ namespace NemetschekEventManagerBackend.Extensions
                     s => s.Options != null ? string.Join(Environment.NewLine, s.Options) : ""
 );
 
-                    for (int i = 0; i < submissionNames.Count; i++)
+                    for (int i = 0; i < submitNames.Count; i++)
                     {
-                        var name = submissionNames[i];
+                        var name = submitNames[i];
                         if (submissionsDict.TryGetValue(name, out var value))
                         {
                             var cell = worksheet.Cell(row, i + 2);
@@ -486,15 +492,13 @@ namespace NemetschekEventManagerBackend.Extensions
                     row++;
                 }
 
-                // Auto adjust columns
                 worksheet.Columns().AdjustToContents();
 
-                // Apply borders to the whole used range
+                // Apply borders to the whole table
                 var usedRange = worksheet.RangeUsed();
                 usedRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
                 usedRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
 
-                // Save to memory stream
                 using var stream = new MemoryStream();
                 workbook.SaveAs(stream);
                 stream.Seek(0, SeekOrigin.Begin);
