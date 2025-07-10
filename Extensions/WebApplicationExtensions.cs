@@ -33,19 +33,8 @@ namespace NemetschekEventManagerBackend.Extensions
         {
             ////EVENT ENDPOINTS
 
-            // Get all events
+            // Get events with filters (optional parameters)
             app.MapGet("/events",
-            [Authorize]
-            (IEventService service) =>
-            {
-                return Results.Ok(service.GetEvents());
-            })
-            .WithSummary("Get all events")
-            .WithDescription("Fetches all events from the database, excluding fields and submissions.");
-
-            // Get events with filters (optional parameters)
-            // Get events with filters (optional parameters)
-            app.MapGet("/events/sort",
             [Authorize]
             (
                 IEventService service,
@@ -53,7 +42,7 @@ namespace NemetschekEventManagerBackend.Extensions
                 DateTime? toDate,
                 bool? activeOnly,
                 bool alphabetical = false,
-                bool sortDescending = false
+                bool sortDescending = true
             ) =>
             {
                 return service.GetEvents(fromDate, toDate, activeOnly, alphabetical, sortDescending);
