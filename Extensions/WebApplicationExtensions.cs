@@ -1,11 +1,16 @@
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Authorization;
+using ClosedXML.Excel;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using NemetschekEventManagerBackend.Interfaces;
 using NemetschekEventManagerBackend.Models;
 using NemetschekEventManagerBackend.Models.DTOs;
 using System.Security.Claims;
-
+using System.Diagnostics;
+using System.Text;
 
 namespace NemetschekEventManagerBackend.Extensions
 {
@@ -24,33 +29,29 @@ namespace NemetschekEventManagerBackend.Extensions
                 options.RoutePrefix = "docs"; // Swagger UI at https://localhost:<port>/docs
             });
         }
+
         // Map Identity API endpoints
         public static void MapEventEndpoints(this WebApplication app)
         {
             ////EVENT ENDPOINTS
 
-            // Get all events
+            // Get events with filters (optional parameters)
             app.MapGet("/events",
             [Authorize]
-            (IEventService service) =>
+            (
+                IEventService service,
+                DateTime? fromDate,
+                DateTime? toDate,
+                bool? activeOnly,
+                bool alphabetical = false,
+                bool sortDescending = true
+            ) =>
             {
-                return Results.Ok(service.GetEvents());
+                return service.GetEvents(fromDate, toDate, activeOnly, alphabetical, sortDescending);
             })
-            .WithSummary("Get all events")
-            .WithDescription("Fetches all events from the database, excluding fields and submissions.");
+            .WithSummary("Search for events")
+            .WithDescription("Fetches events with optional filters: date range, activity status, and sorting options.");
 
-            // Get events with filters (optional parameters)
-            app.MapGet("/events/search",
-            [Authorize]
-            (IEventService service,
-                string? searchName,
-                DateTime? date,
-                bool? activeOnly) =>
-            {
-                return service.GetEvents(searchName!, date, activeOnly);
-            })
-                .WithSummary("Search for events")
-                .WithDescription("Fetches events based on optional filters like event name, date, and whether the event is still active.");
 
             // Get event by ID
             app.MapGet("/events/{id}",
@@ -188,6 +189,17 @@ namespace NemetschekEventManagerBackend.Extensions
             .WithDescription("Allows an admin to remove a user's submission from a specific event by providing the event ID and user ID.");
 
 
+            //Admin delete
+            app.MapDelete("/submissions/{eventId}/{userId}",
+            [Authorize(Roles = "Administrator")]
+            (int eventId, string userId, ISubmitService service, ClaimsPrincipal user) =>
+            {
+                var success = service.RemoveUserFromEvent(eventId, userId);
+                return success ? Results.Ok() : Results.NotFound();
+            })
+            .WithSummary("Remove user submission from event by admin")
+            .WithDescription("Allows an admin to remove a user's submission from a specific event by providing the event ID and user ID.");
+
             // User me
             app.MapGet("/users/me",
             [Authorize]
@@ -300,8 +312,7 @@ namespace NemetschekEventManagerBackend.Extensions
                     }
 
                     await userManager.RemoveFromRoleAsync(user_to_admin, "User"); // Remove default role if exists
-                    var result = await userManager.AddToRoleAsync(user_to_admin, "Administrator");
-
+					          var result = await userManager.AddToRoleAsync(user_to_admin, "Administrator");
                     if (result.Succeeded)
                     {
                         return Results.Ok("User has been made an administrator.");
@@ -311,7 +322,6 @@ namespace NemetschekEventManagerBackend.Extensions
                         await userManager.AddToRoleAsync(user_to_admin, "User"); // Ensure the user has a default role
                         return Results.BadRequest("Failed to make user an administrator.");
                     }
-
                 }
                 catch (Exception ex)
                 {
@@ -336,18 +346,175 @@ namespace NemetschekEventManagerBackend.Extensions
 
                 var result = await manager.RemoveFromRoleAsync(user_to_remove!, "Administrator");
 
-                if (result.Succeeded)
-                {
-                    await manager.AddToRoleAsync(user_to_remove!, "User"); // Ensure the user has a default role
-                    return Results.Ok("User has been removed from administrators.");
-                }
-                else
-                {
-                    await manager.AddToRoleAsync(user_to_remove!, "Administrator"); // Ensure the user has his role back
-                    return Results.BadRequest("Failed to remove user from administrators.");
+                        if (result.Succeeded)
+                        {
+                            await manager.AddToRoleAsync(user_to_remove!, "User"); // Ensure the user has a default role
+                            return Results.Ok("User has been removed from administrators.");
+                        }
+                        else
+                        {
+                            await manager.AddToRoleAsync(user_to_remove!, "Administrator"); // Ensure the user has his role back
+                  return Results.BadRequest("Failed to remove user from administrators.");
                 }
             }).WithSummary("Removes admin.")
             .WithDescription("Only admins remove other admins which are selected by ID as once the admin role is removed the user gets the role 'User'.");
+
+            // Export submissions of a certain event as a .csv file
+            app.MapGet("/csv/{eventId}",
+            [Authorize(Roles = "Administrator")]
+            (HttpContext httpContext,
+            int eventId,
+            ISubmitService submitService,
+            IEventService eventService) =>
+            {
+                if (!eventService.Exists(eventId))
+                {
+                    return Results.NotFound($"Event was not found.");
+                }
+
+                var data = submitService.GetSubmitsByEventId(eventId);
+
+                // Gather all unique submission names (to build the header row)
+                var submissionNames = data
+                    .SelectMany(d => d.Submissions ?? [])
+                    .Select(s => s.Name ?? "")
+                    .Distinct()
+                    .OrderBy(name => name)
+                    .ToList();
+
+                var csvBuilder = new StringBuilder();
+
+                // Header
+                csvBuilder.Append("Date");
+                foreach (var name in submissionNames)
+                {
+                    csvBuilder.Append($",\"{name.Replace("\"", "\"\"")}\"");
+                }
+                csvBuilder.AppendLine();
+
+                // Rows
+                foreach (var summary in data)
+                {
+                    var date = summary.Date?.ToString("yyyy-MM-dd HH:mm:ss") ?? "";
+                    csvBuilder.Append($"\"{date}\"");
+
+                    var submissionsDict = (summary.Submissions ?? []).ToDictionary(
+                        s => s.Name ?? "",
+                        s => s.Options != null ? string.Join("; \n", s.Options.Select(o => o.Replace("\"", "\"\""))) : ""
+                    );
+
+                    foreach (var name in submissionNames)
+                    {
+                        if (submissionsDict.TryGetValue(name, out var options))
+                            csvBuilder.Append($",\"{options}\"");
+                        else
+                            csvBuilder.Append(","); // empty if not answered
+                    }
+
+                    csvBuilder.AppendLine();
+                }
+
+                var utf8WithBom = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
+                var csvString = csvBuilder.ToString();
+                var csvBytes = utf8WithBom.GetBytes(csvString);
+
+                // Set content headers explicitly for correct encoding
+                httpContext.Response.Headers.ContentType = "text/csv; charset=utf-8";
+                httpContext.Response.Headers.ContentDisposition = "attachment; filename=\"submissions.csv\"";
+
+                return Results.File(csvBytes, "text/csv; charset=utf-8");
+
+            }).WithSummary("Exports all submits for a certain event in .csv file.")
+            .WithDescription("Exports all submits for a certain event in .csv file. If the event doesn't exist it return code 404.");
+
+            // Export submissions of a event as a .xlsx file
+
+            app.MapGet("/xlsx/{eventId}",
+            [Authorize(Roles = "Administrator")]
+            (HttpContext httpContext,
+            int eventId,
+            ISubmitService submitService,
+            IEventService eventService) =>
+            {
+                if(!eventService.Exists(eventId))
+                {
+                    return Results.NotFound($"Event was not found.");
+                }
+
+                var data = submitService.GetSubmitsByEventId(eventId);
+
+                // Collect all unique submission names (columns)
+                var submissionNames = data
+                    .SelectMany(d => d.Submissions ?? [])
+                    .Select(s => s.Name ?? "")
+                    .Distinct()
+                    .OrderBy(name => name)
+                    .ToList();
+
+                using var workbook = new XLWorkbook();
+                var worksheet = workbook.Worksheets.Add("Submissions");
+
+                // Header row
+                worksheet.Cell(1, 1).Value = "Date";
+                for (int i = 0; i < submissionNames.Count; i++)
+                {
+                    worksheet.Cell(1, i + 2).Value = submissionNames[i];
+                }
+
+                int totalColumns = submissionNames.Count + 1;
+                var headerRange = worksheet.Range(1, 1, 1, totalColumns);
+                headerRange.Style.Font.Bold = true;
+                headerRange.Style.Fill.BackgroundColor = XLColor.LightBlue;
+                headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                headerRange.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+
+                // Data rows
+                int row = 2;
+                foreach (var summary in data)
+                {
+                    worksheet.Cell(row, 1).Value = summary.Date?.ToString("yyyy-MM-dd HH:mm:ss") ?? "";
+
+                    var submissionsDict = (summary.Submissions ?? []).ToDictionary(
+                    s => s.Name ?? "",
+                    s => s.Options != null ? string.Join(Environment.NewLine, s.Options) : "");
+
+                    for (int i = 0; i < submissionNames.Count; i++)
+                    {
+                        var name = submissionNames[i];
+                        if (submissionsDict.TryGetValue(name, out var value))
+                        {
+                            var cell = worksheet.Cell(row, i + 2);
+                            cell.Value = value;
+                            cell.Style.Alignment.WrapText = true;
+                        }
+                        else
+                        {
+                            worksheet.Cell(row, i + 2).Value = "";
+                        }
+                    }
+
+                    row++;
+                }
+
+                // Auto adjust columns
+                worksheet.Columns().AdjustToContents();
+
+                // Apply borders to the whole used range
+                var usedRange = worksheet.RangeUsed();
+                usedRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+                usedRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+                // Save to memory stream
+                using var stream = new MemoryStream();
+                workbook.SaveAs(stream);
+                stream.Seek(0, SeekOrigin.Begin);
+
+                return Results.File(stream.ToArray(),
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    "submissions.xlsx");
+
+            }).WithSummary("Exports all submits for a certain event in .xlsx file.")
+            .WithDescription("Exports all submits for a certain event in .xlsx file. If the event doesn't exist it return code 404.");
         }
     }
 }

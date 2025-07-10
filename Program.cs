@@ -9,6 +9,7 @@ builder.Services
     .AddAppServices()
     .AddAppDbContext(builder.Configuration)
     .AddAppIdentity()
+    .AddCorsSupport()
     .AddAppSwagger()
     .SetupMailer(builder.Configuration);
 
@@ -30,6 +31,8 @@ if (app.Environment.IsDevelopment())
     //Swagger in DEV
     app.ConfigureSwagger();
 }
+// CORS support
+app.UseCors("AllowAll");
 
 // Use authentication & authorization
 app.MapIdentityApi<User>();

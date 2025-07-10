@@ -4,6 +4,7 @@ using NemetschekEventManagerBackend;
 using NemetschekEventManagerBackend.Models;
 using NemetschekEventManagerBackend.Models.DTOs;
 using System.Threading.Tasks;
+using System.Globalization;
 
 public class EventService : IEventService
 {
@@ -35,25 +36,25 @@ public class EventService : IEventService
             .ToList();
     }
 
-    public List<Event> GetEvents(string searchName, DateTime? date, bool? activeOnly)
+    public List<EventSummaryDto> GetEvents(DateTime? fromDate, DateTime? toDate, bool? activeOnly, bool alphabetical = false, bool sortDescending = false)
     {
-        // Load events with related data from the database
+        // Load events from the database
         List<Event> events = _context.Events.ToList();
 
-        // Filter by event name
-        if (!string.IsNullOrWhiteSpace(searchName))
+        // Filter by date range
+        if (fromDate.HasValue)
         {
+            var from = fromDate.Value.Date;
             events = events
-                .Where(e => e.Name != null && e.Name.ToLower().Contains(searchName.ToLower()))
+                .Where(e => e.Date.HasValue && e.Date.Value.Date >= from)
                 .ToList();
         }
 
-        // Filter by exact date
-        if (date.HasValue)
+        if (toDate.HasValue)
         {
-            var targetDate = date.Value.Date;
+            var to = toDate.Value.Date;
             events = events
-                .Where(e => e.Date.HasValue && e.Date.Value.Date == targetDate)
+                .Where(e => e.Date.HasValue && e.Date.Value.Date <= to)
                 .ToList();
         }
 
@@ -66,9 +67,27 @@ public class EventService : IEventService
                 .ToList();
         }
 
-        return events;
-    }
+        // Sorting
+        if (alphabetical)
+        {
+            var bulgarianCulture = new CultureInfo("bg-BG");
+            var comparer = StringComparer.Create(bulgarianCulture, ignoreCase: true);
 
+            events = sortDescending
+                ? events.OrderByDescending(e => e.Name, comparer).ToList()
+                : events.OrderBy(e => e.Name, comparer).ToList();
+        }
+        else
+        {
+            // Default sort: Date descending (most recent to oldest)
+            events = sortDescending
+                ? events.OrderByDescending(e => e.Date).ToList()
+                : events.OrderBy(e => e.Date).ToList();
+        }
+
+        // Convert to DTOs
+        return events.Select(e => e.ToSummaryDto()).ToList();
+    }
 
     public async Task<bool> RemoveById(int eventId, IEmailSender _emailSender)
     {
@@ -124,5 +143,9 @@ public class EventService : IEventService
 
         _context.Events.Update(ev);
         return _context.SaveChanges() != 0;
+    }
+    public bool Exists(int eventId)
+    {
+        return _context.Events.Any(e => e.Id == eventId);
     }
 }
