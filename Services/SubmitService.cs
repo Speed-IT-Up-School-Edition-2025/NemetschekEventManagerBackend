@@ -32,6 +32,9 @@ public class SubmitService : ISubmitService
         if (_context.Submits.Any(s => s.EventId == eventId && s.UserId == userId))
             return false;
 
+        if (_context.Submits.Where(e => e.EventId == eventId).Count() >= _context.Events.Find(eventId)!.PeopleLimit)
+            return false;
+
         var entity = SubmitMapper.ToEntity(eventId, userId, dto);
         _context.Submits.Add(entity);
         return _context.SaveChanges() > 0;

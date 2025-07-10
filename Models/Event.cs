@@ -18,6 +18,8 @@ namespace NemetschekEventManagerBackend.Models
         public DateTime? SignUpDeadline { get; set; }
         [Required]
         public string? Location { get; set; }
+        [Range(1, int.MaxValue, ErrorMessage = "People limit must be a positive number.")]
+        public int? PeopleLimit { get; set; }
         public IList<Field>? Fields { get; set; }
         [Required]
         public DateTime? CreatedAt { get; set; }
@@ -25,5 +27,6 @@ namespace NemetschekEventManagerBackend.Models
         public DateTime? UpdatedAt { get; set; }
         [JsonIgnore]
         public ICollection<Submit>? Submissions { get; set; }
+
     }
 }
