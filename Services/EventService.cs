@@ -55,7 +55,6 @@ public class EventService : IEventService
 
     public List<EventSummaryDto> GetEvents(DateTime? fromDate, DateTime? toDate, bool? activeOnly, bool alphabetical = false, bool sortDescending = false)
     {
-        // Load events from the database
         List<Event> events = _context.Events.Include(e => e.Submissions).ToList();
 
         // Filter by date range
@@ -75,7 +74,7 @@ public class EventService : IEventService
                 .ToList();
         }
 
-        // Filter by whether the signup period is still active
+        // Filter by active only
         if (activeOnly == true)
         {
             var now = DateTime.UtcNow;
@@ -84,32 +83,45 @@ public class EventService : IEventService
                 .ToList();
         }
 
-        // Sorting
-        if (alphabetical)
-        {
-            var bulgarianCulture = new CultureInfo("bg-BG");
-            var comparer = StringComparer.Create(bulgarianCulture, ignoreCase: true);
+        // Sort based on the required custom priority
+        var nowTime = DateTime.UtcNow;
 
-            events = (sortDescending
-                ? events.OrderByDescending(e =>
-                    IsEnglish(e.Name) ? 0 : 1) // 0: English group, 1: Bulgarian
-                    .ThenByDescending(e => e.Name, comparer)
-                : events.OrderBy(e =>
-                    IsEnglish(e.Name) ? 0 : 1)
-                    .ThenBy(e => e.Name, comparer))
-                .ToList();
-        }
-        else
-        {
-            // Default sort: Date descending (most recent to oldest)
-            events = sortDescending
-                ? events.OrderByDescending(e => e.Date).ToList()
-                : events.OrderBy(e => e.Date).ToList();
-        }
+        events = events
+            .OrderBy(e =>
+            {
+                bool isActive = e.SignUpDeadline.HasValue && e.SignUpDeadline.Value > nowTime;
+                bool hasFreeSpots = e.PeopleLimit == null || e.Submissions.Count < e.PeopleLimit;
+                // Priority: 0 - active with free spots, 1 - active full, 2 - inactive
+                return isActive
+                    ? (hasFreeSpots ? 0 : 1)
+                    : 2;
+            })
+            .ThenBy(e =>
+            {
+                if (alphabetical)
+                {
+                    return IsEnglish(e.Name) ? 0 : 1;
+                }
+                return 0; // dummy for date sorting fallback
+            })
+            .ThenBy(e =>
+            {
+                if (alphabetical)
+                {
+                    var comparer = StringComparer.Create(new CultureInfo("bg-BG"), ignoreCase: true);
+                    return e.Name;
+                }
+                return null;
+            })
+            .ThenBy(e => !alphabetical ? e.Date : null)
+            .ToList();
 
-        // Convert to DTOs
+        if (sortDescending)
+            events.Reverse(); // Reverses entire list after prioritization
+
         return events.Select(e => e.ToSummaryDto()).ToList();
     }
+
 
     private bool IsEnglish(string input)
     {
