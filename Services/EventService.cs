@@ -29,6 +29,11 @@ public class EventService : IEventService
         return _context.Events.Find(eventId);
     }
 
+    public EventDetailsDto? GetEventById(int eventId, string userId)
+    {
+        return _context.Events.Include(e => e.Submissions).First(e => e.Id == eventId).ToDetailsDto(userId);
+    }
+
     public List<EventSummaryDto> GetEvents()
     {
         return _context.Events

@@ -15,6 +15,7 @@ public class SubmitService : ISubmitService
     public List<SubmitSummaryDto> GetSubmitsByEventId(int eventId)
     {
         return _context.Submits
+            .Include(s => s.User)
             .Where(s => s.EventId == eventId)
             .Select(s => SubmitMapper.ToSummaryDto(s))
             .ToList();
