@@ -106,8 +106,6 @@ namespace NemetschekEventManagerBackend.Extensions
             .WithSummary("Update event by ID")
             .WithDescription("Updates an existing event using its ID and provided details. Returns 404 if not found.");
 
-
-
             // Delete event by ID
             app.MapDelete("/events/{id}",
             [Authorize(Roles = "Administrator")]

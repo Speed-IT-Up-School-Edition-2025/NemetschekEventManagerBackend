@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using NemetschekEventManagerBackend;
 using NemetschekEventManagerBackend.Extensions;
 using NemetschekEventManagerBackend.Models;
 using NemetschekEventManagerBackend.Seeders;
@@ -11,7 +12,8 @@ builder.Services
     .AddAppIdentity()
     .AddCorsSupport()
     .AddAppSwagger()
-    .SetupMailer(builder.Configuration);
+    .Seeder()
+	.SetupMailer(builder.Configuration);
 
 var app = builder.Build();
 
@@ -22,7 +24,7 @@ using (var scope = app.Services.CreateScope())
     var services = scope.ServiceProvider;
     var userManager = services.GetRequiredService<UserManager<User>>();
     var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
-    await AdminSeeder.SeedAsync(userManager, roleManager);
+	await AdminSeeder.SeedAsync(userManager, roleManager);
     await RoleSeeder.SeedAsync(roleManager);
 }
 

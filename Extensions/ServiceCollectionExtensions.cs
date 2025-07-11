@@ -7,6 +7,7 @@ using Microsoft.OpenApi.Models;
 using NemetschekEventManagerBackend.Models;
 using System.Reflection;
 using NemetschekEventManagerBackend.Interfaces;
+using NemetschekEventManagerBackend.Seeders;
 
 namespace NemetschekEventManagerBackend.Extensions
 {
@@ -117,5 +118,11 @@ namespace NemetschekEventManagerBackend.Extensions
 
             return services;
         }
-    }
+
+        public static IServiceCollection Seeder(this IServiceCollection services)
+        {
+            services.AddHostedService<ApplicationSeeder>();
+            return services;
+		}
+	}
 }
