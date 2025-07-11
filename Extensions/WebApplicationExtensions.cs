@@ -243,7 +243,7 @@ namespace NemetschekEventManagerBackend.Extensions
 
                 var user = await userManager.FindByIdAsync(userId);
                 if (user == null)
-                    return Results.NotFound("User not found");
+                    return Results.Unauthorized();
 
                 // Set times only if set to null
                 if (user.CreatedAt == null)
@@ -272,7 +272,7 @@ namespace NemetschekEventManagerBackend.Extensions
                     var result = await userManager.AddToRoleAsync(user, "User");
                     if (!result.Succeeded)
                     {
-                        return Results.Problem("Failed to assign default role.");
+                        return Results.InternalServerError(new { error = "Поставянето на роля по подразбиране се провали." });
                     }
 
                     roles = await userManager.GetRolesAsync(user); // Re-fetch roles
@@ -302,7 +302,7 @@ namespace NemetschekEventManagerBackend.Extensions
 
                     if (user_to_admin == null)
                     {
-                        return Results.NotFound("User not found");
+                        return Results.NotFound(new { error = "Потребителят не е намерен"});
                     }
 
                     await userManager.RemoveFromRoleAsync(user_to_admin, "User"); // Remove default role if exists
@@ -319,7 +319,7 @@ namespace NemetschekEventManagerBackend.Extensions
                 }
                 catch (Exception ex)
                 {
-                    return Results.Problem("Error message: " + ex);
+                    return Results.Problem(ex.ToString());
                 }
             }).WithSummary("Admin adds new admins.")
             .WithDescription("Only Amins can add new admins as it selects them by ID.");
@@ -335,7 +335,7 @@ namespace NemetschekEventManagerBackend.Extensions
 
                 if (user_to_remove == null)
                 {
-                    return Results.NotFound("User not found");
+                    return Results.NotFound(new { error = "Потребителят не е намерен" });
                 }
 
                 var result = await manager.RemoveFromRoleAsync(user_to_remove!, "Administrator");
@@ -343,12 +343,12 @@ namespace NemetschekEventManagerBackend.Extensions
                         if (result.Succeeded)
                         {
                             await manager.AddToRoleAsync(user_to_remove!, "User"); // Ensure the user has a default role
-                            return Results.Ok("User has been removed from administrators.");
+                            return Results.Ok(new { error = "Потребителя вече е админ."});
                         }
                         else
                         {
                             await manager.AddToRoleAsync(user_to_remove!, "Administrator"); // Ensure the user has his role back
-                  return Results.BadRequest("Failed to remove user from administrators.");
+                  return Results.BadRequest(new { error = "Действието се провали!"});
                 }
             }).WithSummary("Removes admin.")
             .WithDescription("Only admins remove other admins which are selected by ID as once the admin role is removed the user gets the role 'User'.");
@@ -363,7 +363,7 @@ namespace NemetschekEventManagerBackend.Extensions
             {
                 if (!eventService.Exists(eventId))
                 {
-                    return Results.NotFound($"Event was not found.");
+                    return Results.NotFound(new { error = "Събитието не беше намерено." });
                 }
 
                 var data = submitService.GetSubmitsByEventId(eventId);
@@ -432,7 +432,7 @@ namespace NemetschekEventManagerBackend.Extensions
             {
                 if(!eventService.Exists(eventId))
                 {
-                    return Results.NotFound($"Event was not found.");
+                    return Results.NotFound(new { error = "Събитието не беше намерено." });
                 }
 
                 var data = submitService.GetSubmitsByEventId(eventId);
