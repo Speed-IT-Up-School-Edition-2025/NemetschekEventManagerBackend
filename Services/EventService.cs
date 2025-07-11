@@ -37,6 +37,18 @@ public class EventService : IEventService
             .ToList();
     }
 
+    public List<EventSummaryDto> GetJoinedEvents(string userId)
+    {
+        return _context.Submits
+            .Include(s => s.Event)
+            .ThenInclude(e => e.Submissions)
+            .Where(s => s.UserId == userId && s.Event != null)
+            .Select(s => s.Event!)
+            .Select(e => e.ToSummaryDto())
+            .ToList();
+    }
+
+
     public List<EventSummaryDto> GetEvents(DateTime? fromDate, DateTime? toDate, bool? activeOnly, bool alphabetical = false, bool sortDescending = false)
     {
         // Load events from the database
@@ -133,7 +145,6 @@ public class EventService : IEventService
         _context.Events.Remove(ev);
         return await _context.SaveChangesAsync() != 0;
     }
-
 
     public bool Update(int eventId, UpdateEventDto dto)
     {

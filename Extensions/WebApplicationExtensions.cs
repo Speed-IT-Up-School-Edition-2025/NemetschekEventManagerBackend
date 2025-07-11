@@ -1,14 +1,14 @@
-using Microsoft.AspNetCore.Identity.UI.Services;
-using Microsoft.AspNetCore.Authorization;
 using ClosedXML.Excel;
-
+using DocumentFormat.OpenXml.Spreadsheet;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
 using NemetschekEventManagerBackend.Interfaces;
 using NemetschekEventManagerBackend.Models;
 using NemetschekEventManagerBackend.Models.DTOs;
-using System.Security.Claims;
 using System.Diagnostics;
+using System.Security.Claims;
 using System.Text;
 
 namespace NemetschekEventManagerBackend.Extensions
@@ -50,6 +50,22 @@ namespace NemetschekEventManagerBackend.Extensions
             })
             .WithSummary("Search for events")
             .WithDescription("Fetches events with optional filters: date range, activity status, and sorting options.");
+
+            //Get users events
+            app.MapGet("/events/joined",
+            [Authorize]
+            (HttpContext http, IEventService service, ClaimsPrincipal user) =>
+            {
+                var userId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub");
+                if (string.IsNullOrEmpty(userId))
+                    return Results.Unauthorized();
+                
+                var events = service.GetJoinedEvents(userId);
+                return events.Any() ? Results.Ok(events) : Results.NotFound("No joined events found.");
+            })
+            .WithSummary("Get joined events for current user")
+            .WithDescription("Returns a list of events the currently authenticated user has joined. If the user hasn't joined any events, returns a 404.");
+
 
 
             // Get event by ID
@@ -134,7 +150,7 @@ namespace NemetschekEventManagerBackend.Extensions
                 var created = service.Create(eventId, userId, dto);
                 return created
                     ? Results.Created($"/submits/{eventId}", dto)
-                    : Results.Conflict("A submission already exists for this user and event.");
+                    : Results.Conflict("A submission already exists for this user and event or there is no spots left.");
             })
             .WithSummary("Create new submit for authenticated user")
             .WithDescription("Creates a new submit record for the authenticated user. Returns 409 if one already exists.");
