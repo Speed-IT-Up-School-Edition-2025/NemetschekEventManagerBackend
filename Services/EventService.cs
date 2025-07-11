@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Identity.UI.Services;
+﻿using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
 using NemetschekEventManagerBackend;
 using NemetschekEventManagerBackend.Models;
@@ -29,6 +29,11 @@ public class EventService : IEventService
         return _context.Events.Find(eventId);
     }
 
+    public EventDetailsDto? GetEventById(int eventId, string userId)
+    {
+        return _context.Events.Include(e => e.Submissions).First(e => e.Id == eventId).ToDetailsDto(userId);
+    }
+
     public List<EventSummaryDto> GetEvents()
     {
         return _context.Events
@@ -48,58 +53,80 @@ public class EventService : IEventService
             .ToList();
     }
 
-
     public List<EventSummaryDto> GetEvents(DateTime? fromDate, DateTime? toDate, bool? activeOnly, bool alphabetical = false, bool sortDescending = false)
     {
-        // Load events from the database
         List<Event> events = _context.Events.Include(e => e.Submissions).ToList();
 
-        // Filter by date range
+        // Apply filters
         if (fromDate.HasValue)
         {
             var from = fromDate.Value.Date;
-            events = events
-                .Where(e => e.Date.HasValue && e.Date.Value.Date >= from)
-                .ToList();
+            events = events.Where(e => e.Date.HasValue && e.Date.Value.Date >= from).ToList();
         }
 
         if (toDate.HasValue)
         {
             var to = toDate.Value.Date;
-            events = events
-                .Where(e => e.Date.HasValue && e.Date.Value.Date <= to)
-                .ToList();
+            events = events.Where(e => e.Date.HasValue && e.Date.Value.Date <= to).ToList();
         }
 
-        // Filter by whether the signup period is still active
         if (activeOnly == true)
         {
             var now = DateTime.UtcNow;
-            events = events
-                .Where(e => e.SignUpDeadline.HasValue && e.SignUpDeadline.Value > now)
-                .ToList();
+            events = events.Where(e => e.SignUpDeadline.HasValue && e.SignUpDeadline.Value > now).ToList();
         }
 
-        // Sorting
-        if (alphabetical)
-        {
-            var bulgarianCulture = new CultureInfo("bg-BG");
-            var comparer = StringComparer.Create(bulgarianCulture, ignoreCase: true);
+        // Determine whether to apply the custom sort
+        bool filtersApplied = fromDate.HasValue || toDate.HasValue || activeOnly == true;
+        var nowTime = DateTime.UtcNow;
 
-            events = sortDescending
-                ? events.OrderByDescending(e => e.Name, comparer).ToList()
-                : events.OrderBy(e => e.Name, comparer).ToList();
+        // Sorting
+        if (!filtersApplied)
+        {
+            // Apply default sort: active w/ spots → active full → inactive
+            events = events
+                .OrderBy(e =>
+                {
+                    bool isActive = e.SignUpDeadline.HasValue && e.SignUpDeadline.Value > nowTime;
+                    bool hasSpots = e.PeopleLimit == null || e.Submissions.Count < e.PeopleLimit;
+                    return isActive ? (hasSpots ? 0 : 1) : 2;
+                })
+                .ThenBy(e => alphabetical ? (IsEnglish(e.Name) ? 0 : 1) : 0)
+                .ThenBy(e => alphabetical ? e.Name : null)
+                .ThenBy(e => !alphabetical ? e.Date : null)
+                .ToList();
         }
         else
         {
-            // Default sort: Date descending (most recent to oldest)
-            events = sortDescending
-                ? events.OrderByDescending(e => e.Date).ToList()
-                : events.OrderBy(e => e.Date).ToList();
+            // Skip custom status-based sort when filters are applied
+            if (alphabetical)
+            {
+                events = events
+                    .OrderBy(e => IsEnglish(e.Name) ? 0 : 1)
+                    .ThenBy(e => e.Name, StringComparer.Create(new CultureInfo("bg-BG"), ignoreCase: true))
+                    .ToList();
+            }
+            else
+            {
+                events = events
+                    .OrderBy(e => e.Date)
+                    .ToList();
+            }
         }
 
-        // Convert to DTOs
+        if (sortDescending)
+        {
+            events.Reverse();
+        }
+
         return events.Select(e => e.ToSummaryDto()).ToList();
+    }
+
+    private bool IsEnglish(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return false;
+        char firstChar = input.Trim()[0];
+        return (firstChar >= 'A' && firstChar <= 'Z') || (firstChar >= 'a' && firstChar <= 'z');
     }
 
     public async Task<bool> RemoveById(int eventId, IEmailSender _emailSender)

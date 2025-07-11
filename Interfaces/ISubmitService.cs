@@ -9,8 +9,8 @@ namespace NemetschekEventManagerBackend
     {
         List<SubmitSummaryDto> GetSubmitsByEventId(int eventId);
         Submit? GetSubmitByEventAndUser(int eventId, string userId);
-        bool Create(int eventId, string userId, CreateSubmitDto dto);
-        bool UpdateSubmission(int eventId, string userId, UpdateSubmitDto dto);
+        IResult Create(int eventId, string userId, CreateSubmitDto dto);
+        IResult UpdateSubmission(int eventId, string userId, UpdateSubmitDto dto);
         Task<bool> RemoveUserFromEvent(int eventId, string userId, IEmailSender emailSender);
         Task<bool> AdminRemoveUserFromEvent(int eventId, string userId, IEmailSender emailSender);
     }

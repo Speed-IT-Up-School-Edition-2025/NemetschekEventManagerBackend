@@ -1,13 +1,12 @@
-using ClosedXML.Excel;
+﻿using ClosedXML.Excel;
 using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
-using NemetschekEventManagerBackend.Interfaces;
 using NemetschekEventManagerBackend.Models;
 using NemetschekEventManagerBackend.Models.DTOs;
-using System.Diagnostics;
+using NemetschekEventManagerBackend.Seeders;
 using System.Security.Claims;
 using System.Text;
 
@@ -28,6 +27,42 @@ namespace NemetschekEventManagerBackend.Extensions
                 options.RoutePrefix = "docs"; // Swagger UI at https://localhost:<port>/docs
             });
         }
+        public static async Task ConfigureDemoSeederAsync(this WebApplication app)
+        {
+            using var scope = app.Services.CreateScope();
+            var services = scope.ServiceProvider;
+
+            var userManager = services.GetRequiredService<UserManager<User>>();
+            var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+            var dbContext = services.GetRequiredService<EventDbContext>();
+
+            await RoleSeeder.SeedAsync(roleManager);
+            await AdminSeeder.SeedAsync(userManager, roleManager);
+
+            var dbSeeder = new DbSeeder(dbContext);
+            await dbSeeder.Seed();
+        }
+
+
+        //Admin Seeder
+        public static async Task ConfigureSeederAsync(this WebApplication app)
+        {
+            using var scope = app.Services.CreateScope();
+            var services = scope.ServiceProvider;
+
+            var userManager = services.GetRequiredService<UserManager<User>>();
+            var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+            var dbContext = services.GetRequiredService<EventDbContext>();
+
+            // Seed roles (static)
+            await RoleSeeder.SeedAsync(roleManager);
+
+            // Seed admin user (static)
+            await AdminSeeder.SeedAsync(userManager, roleManager);
+        }
+
+
+
 
         // Map Identity API endpoints
         public static void MapEventEndpoints(this WebApplication app)
@@ -61,20 +96,22 @@ namespace NemetschekEventManagerBackend.Extensions
                     return Results.Unauthorized();
                 
                 var events = service.GetJoinedEvents(userId);
-                return events.Any() ? Results.Ok(events) : Results.NotFound("No joined events found.");
+                return Results.Ok(events);
             })
             .WithSummary("Get joined events for current user")
             .WithDescription("Returns a list of events the currently authenticated user has joined. If the user hasn't joined any events, returns a 404.");
 
-
-
             // Get event by ID
             app.MapGet("/events/{id}",
             [Authorize]
-            (IEventService service, int id) =>
+            (IEventService service, int id, ClaimsPrincipal user) =>
             {
-                var ev = service.GetEventById(id);
-                return ev is not null ? Results.Ok(ev) : Results.NotFound();
+                var userId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub");
+                if (string.IsNullOrEmpty(userId))
+                    return Results.Unauthorized();
+
+                var ev = service.GetEventById(id, userId);
+                return Results.Ok(ev);
             })
                 .WithSummary("Get event by ID")
                 .WithDescription("Fetches an event by its unique identifier (ID). If the event doesn't exist, returns a 404 error.");
@@ -85,7 +122,7 @@ namespace NemetschekEventManagerBackend.Extensions
             (IEventService service, CreateEventDto dto) =>
             {
                 if (string.IsNullOrWhiteSpace(dto.Name))
-                    return Results.BadRequest("Event name is required.");
+                    return Results.BadRequest(new { error = "Името на събитието е задължително." });
 
                 var newEvent = EventMapper.ToEntity(dto);
 
@@ -93,7 +130,7 @@ namespace NemetschekEventManagerBackend.Extensions
 
                 return success
                     ? Results.Created($"/events/{newEvent.Id}", new { newEvent.Id })
-                    : Results.BadRequest("Failed to create event.");
+                    : Results.BadRequest(new { error = "Неуспешно създаване на събитие."});
             })
             .WithSummary("Create a new event")
             .WithDescription("Creates a new event with the provided details. The server sets CreatedAt and UpdatedAt.");
@@ -106,12 +143,10 @@ namespace NemetschekEventManagerBackend.Extensions
             (IEventService service, int id, UpdateEventDto dto) =>
             {
                 var success = service.Update(id, dto);
-                return success ? Results.Ok() : Results.NotFound();
+                return success ? Results.Ok() : Results.BadRequest();
             })
             .WithSummary("Update event by ID")
             .WithDescription("Updates an existing event using its ID and provided details. Returns 404 if not found.");
-
-
 
             // Delete event by ID
             app.MapDelete("/events/{id}",
@@ -119,27 +154,40 @@ namespace NemetschekEventManagerBackend.Extensions
             async (IEventService service, int id, IEmailSender emailSender) =>
             {
                 var success = await service.RemoveById(id, emailSender);
-                return success ? Results.Ok() : Results.NotFound();
+                return success ? Results.Ok() : Results.BadRequest();
             });
 
             //// SUBMIT ENDPOINTS
 
 
             // GET submissions by eventId
-            app.MapGet("/submits/{eventId}",
+            app.MapGet("/submissions/{eventId}",
             [Authorize]
             (ISubmitService service, int eventId) =>
             {
                 var submits = service.GetSubmitsByEventId(eventId);
-                return submits.Count == 0
-                    ? Results.NotFound()
-                    : Results.Ok(submits);
+                return Results.Ok(submits);
             })
-            .WithSummary("Get submit for authenticated user")
-            .WithDescription("Fetches a submission for the authenticated user by event ID. Returns 404 if the submission does not exist.");
+            .WithSummary("Get all submits for event")
+            .WithDescription("Get all submits for event. Returns empty if the submissions do not exist.");
+
+            // GET submissions for current user by eventId
+            app.MapGet("/submissions/{eventId}/me",
+            [Authorize]
+            (ISubmitService service, int eventId, ClaimsPrincipal user) =>
+            {
+                var userId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub");
+                if (string.IsNullOrEmpty(userId))
+                    return Results.Unauthorized();
+
+                var submits = service.GetSubmitByEventAndUser(eventId, userId);
+                return submits != null ? Results.Ok(submits) : Results.BadRequest();
+            })
+            .WithSummary("Fetch current authenticated user for event")
+            .WithDescription("Fetches a submission for the authenticated user by event ID. Returns 400 if the submission does not exist.");
 
             // Create new submit for authenticated user
-            app.MapPost("/submits/{eventId}",
+            app.MapPost("/submissions/{eventId}",
             [Authorize]
             (int eventId, CreateSubmitDto dto, ISubmitService service, ClaimsPrincipal user) =>
             {
@@ -148,15 +196,13 @@ namespace NemetschekEventManagerBackend.Extensions
                     return Results.Unauthorized();
 
                 var created = service.Create(eventId, userId, dto);
-                return created
-                    ? Results.Created($"/submits/{eventId}", dto)
-                    : Results.Conflict("A submission already exists for this user and event or there is no spots left.");
+                return created;
             })
             .WithSummary("Create new submit for authenticated user")
             .WithDescription("Creates a new submit record for the authenticated user. Returns 409 if one already exists.");
 
             // PUT endpoint
-            app.MapPut("/submits/{eventId}",
+            app.MapPut("/submissions/{eventId}",
             [Authorize]
             (int eventId, UpdateSubmitDto dto, ISubmitService service, ClaimsPrincipal user) =>
             {
@@ -165,9 +211,7 @@ namespace NemetschekEventManagerBackend.Extensions
                     return Results.Unauthorized();
 
                 var updated = service.UpdateSubmission(eventId, userId, dto);
-                return updated
-                    ? Results.NoContent()
-                    : Results.NotFound("Submit record not found or update failed.");
+                return updated;
             })
             .WithSummary("Update submission for authenticated user")
             .WithDescription("Updates all submissions for the authenticated user in the specified event. Returns 404 if not found.");
@@ -184,7 +228,7 @@ namespace NemetschekEventManagerBackend.Extensions
                var success = await service.RemoveUserFromEvent(eventId, userId, emailSender);
                 return success ? Results.Ok() : Results.NotFound();
             })
-            .WithSummary("Removes user from event")
+            .WithSummary("Removes authenticated user from event")
             .WithDescription("Allows user to remove himself from an event and notifies the user by email.");
 
 
@@ -203,6 +247,40 @@ namespace NemetschekEventManagerBackend.Extensions
             .WithSummary("Remove user submission from event by admin")
             .WithDescription("Allows an admin to remove a user's submission from a specific event by providing the event ID and user ID.");
 
+            //enpoint to get all users
+            app.MapGet("/users",
+            [Authorize(Roles = "Administrator")]
+            async (UserManager<User> manager) =>
+            {
+                try
+                {
+                    var users = await manager.Users.ToListAsync();
+
+                    var userInfos = new List<object>();
+
+                    foreach (var user in users)
+                    {
+                        var roles = await manager.GetRolesAsync(user);
+
+                        userInfos.Add(new
+                        {
+                            Id = user.Id,
+                            Email = user.Email,
+                            Roles = roles,
+                            CreatedAT = user.CreatedAt,
+                            UpdatedAT = user.UpdatedAt
+                        });
+                    }
+
+                    return Results.Ok(userInfos);
+                }
+                catch (Exception ex)
+                {
+                    return Results.Problem("Error message: " + ex);
+                }
+            }).WithSummary("Gets a user list.")
+            .WithDescription("Returns the id, Email, Created at date and Updated At date for every user.");
+
             // User me
             app.MapGet("/users/me",
             [Authorize]
@@ -213,12 +291,12 @@ namespace NemetschekEventManagerBackend.Extensions
             {
                 var principal = httpContext.User;
 
-                var userId = principal.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-                var email = principal.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+                var userId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var email = principal.FindFirst(ClaimTypes.Email)?.Value;
 
                 var user = await userManager.FindByIdAsync(userId);
                 if (user == null)
-                    return Results.NotFound("User not found");
+                    return Results.Unauthorized();
 
                 // Set times only if set to null
                 if (user.CreatedAt == null)
@@ -247,7 +325,7 @@ namespace NemetschekEventManagerBackend.Extensions
                     var result = await userManager.AddToRoleAsync(user, "User");
                     if (!result.Succeeded)
                     {
-                        return Results.Problem("Failed to assign default role.");
+                        return Results.InternalServerError(new { error = "Поставянето на роля по подразбиране се провали." });
                     }
 
                     roles = await userManager.GetRolesAsync(user); // Re-fetch roles
@@ -255,7 +333,7 @@ namespace NemetschekEventManagerBackend.Extensions
 
                 return Results.Ok(new
                 {
-                    UserId = user.Id,
+                    Id = user.Id,
                     Email = user.Email,
                     Roles = roles,
                     CreatedAt = user.CreatedAt,
@@ -263,40 +341,6 @@ namespace NemetschekEventManagerBackend.Extensions
                 });
             }).WithSummary("Gets information for the current user")
             .WithDescription("Gives UserID, Email, Role, Created At date and Updated At date. If the user doesn't have a role, it assigns the role \"User\".");
-
-            //enpoint to get all users
-            app.MapGet("/users/info",
-            [Authorize(Roles = "Administrator")]
-            async (UserManager<User> manager) =>
-            {
-                try
-                {
-                    var users = await manager.Users.ToListAsync();
-
-                    var userInfos = new List<object>();
-
-                    foreach (var user in users)
-                    {
-                        var roles = await manager.GetRolesAsync(user);
-
-                        userInfos.Add(new
-                        {
-                            ID = user.Id,
-                            Email = user.Email,
-                            Roles = roles,
-                            CreatedAT = user.CreatedAt,
-                            UpdatedAT = user.UpdatedAt
-                        });
-                    }
-
-                    return Results.Ok(userInfos);
-                }
-                catch (Exception ex)
-                {
-                    return Results.Problem("Error message: " + ex);
-                }
-            }).WithSummary("Gets a user list.")
-            .WithDescription("Returns the ID, Email, Created at date and Updated At date for every user.");
 
             //enpoint-admin makes other users administrators
             app.MapPost("/users/admin/{id}",
@@ -311,24 +355,24 @@ namespace NemetschekEventManagerBackend.Extensions
 
                     if (user_to_admin == null)
                     {
-                        return Results.NotFound("User not found");
+                        return Results.NotFound(new { error = "Потребителят не е намерен"});
                     }
 
                     await userManager.RemoveFromRoleAsync(user_to_admin, "User"); // Remove default role if exists
 					          var result = await userManager.AddToRoleAsync(user_to_admin, "Administrator");
                     if (result.Succeeded)
                     {
-                        return Results.Ok("User has been made an administrator.");
+                        return Results.Ok(new { error = "Потребителят вече е администратор." });
                     }
                     else
                     {
                         await userManager.AddToRoleAsync(user_to_admin, "User"); // Ensure the user has a default role
-                        return Results.BadRequest("Failed to make user an administrator.");
+                        return Results.BadRequest(new { error = "Потребителят не беше направен администратор." });
                     }
                 }
                 catch (Exception ex)
                 {
-                    return Results.Problem("Error message: " + ex);
+                    return Results.Problem(ex.ToString());
                 }
             }).WithSummary("Admin adds new admins.")
             .WithDescription("Only Amins can add new admins as it selects them by ID.");
@@ -344,14 +388,14 @@ namespace NemetschekEventManagerBackend.Extensions
 
                 if (user_to_remove == null)
                 {
-                    return Results.NotFound("User not found");
+                    return Results.NotFound(new { error = "Потребителят не е намерен" });
                 }
 
                 const string seededAdminEmail = "admin@example.com";
 
                 if (user_to_remove.Email == seededAdminEmail)
                 {
-                    return Results.BadRequest("Cannot remove the original administrator.");
+                    return Results.BadRequest(new { error = "Не можете да премахнете началният администратор." });
                 }
 
                 var result = await manager.RemoveFromRoleAsync(user_to_remove!, "Administrator");
@@ -359,12 +403,12 @@ namespace NemetschekEventManagerBackend.Extensions
                         if (result.Succeeded)
                         {
                             await manager.AddToRoleAsync(user_to_remove!, "User"); // Ensure the user has a default role
-                            return Results.Ok("User has been removed from administrators.");
+                            return Results.Ok(new { error = "Потребителя вече е админ."});
                         }
                         else
                         {
                             await manager.AddToRoleAsync(user_to_remove!, "Administrator"); // Ensure the user has his role back
-                  return Results.BadRequest("Failed to remove user from administrators.");
+                  return Results.BadRequest(new { error = "Действието се провали!"});
                 }
             }).WithSummary("Removes admin.")
             .WithDescription("Only admins remove other admins which are selected by ID as once the admin role is removed the user gets the role 'User'.");
@@ -379,7 +423,7 @@ namespace NemetschekEventManagerBackend.Extensions
             {
                 if (!eventService.Exists(eventId))
                 {
-                    return Results.NotFound($"Event was not found.");
+                    return Results.NotFound(new { error = "Събитието не беше намерено." });
                 }
 
                 var data = submitService.GetSubmitsByEventId(eventId);
@@ -395,6 +439,7 @@ namespace NemetschekEventManagerBackend.Extensions
                 var csvBuilder = new StringBuilder();
 
                 // Header
+                csvBuilder.Append("Email,");
                 csvBuilder.Append("Date");
                 foreach (var name in submitNames)
                 {
@@ -405,12 +450,16 @@ namespace NemetschekEventManagerBackend.Extensions
                 // Rows
                 foreach (var summary in data)
                 {
+                    var email = summary.Email ?? "";
+
+                    csvBuilder.Append($"{email},");
+
                     var date = summary.Date?.ToString("yyyy-MM-dd HH:mm:ss") ?? "";
                     csvBuilder.Append($"\"{date}\"");
 
                     var submissionsDict = (summary.Submissions ?? []).ToDictionary(
                         s => s.Name ?? "",
-                        s => s.Options != null ? string.Join("; \n", s.Options.Select(o => o.Replace("\"", "\"\""))) : ""
+                        s => s.Options != null ? string.Join(" \n", s.Options.Select(o => o.Replace("\"", "\"\""))) : ""
                     );
 
                     foreach (var name in submitNames)
@@ -447,7 +496,7 @@ namespace NemetschekEventManagerBackend.Extensions
             {
                 if(!eventService.Exists(eventId))
                 {
-                    return Results.NotFound($"Event was not found.");
+                    return Results.NotFound(new { error = "Събитието не беше намерено." });
                 }
 
                 var data = submitService.GetSubmitsByEventId(eventId);
@@ -464,13 +513,14 @@ namespace NemetschekEventManagerBackend.Extensions
                 var worksheet = workbook.Worksheets.Add("Submissions");
 
                 // Header row
-                worksheet.Cell(1, 1).Value = "Date";
+                worksheet.Cell(1, 1).Value = "Email";
+                worksheet.Cell(1, 2).Value = "Date";
                 for (int i = 0; i < submitNames.Count; i++)
                 {
-                    worksheet.Cell(1, i + 2).Value = submitNames[i];
+                    worksheet.Cell(1, i + 3).Value = submitNames[i];
                 }
 
-                int totalColumns = submitNames.Count + 1;
+                int totalColumns = submitNames.Count + 2;
                 var headerRange = worksheet.Range(1, 1, 1, totalColumns);
                 headerRange.Style.Font.Bold = true;
                 headerRange.Style.Fill.BackgroundColor = XLColor.LightBlue;
@@ -481,7 +531,8 @@ namespace NemetschekEventManagerBackend.Extensions
                 int row = 2;
                 foreach (var summary in data)
                 {
-                    worksheet.Cell(row, 1).Value = summary.Date?.ToString("yyyy-MM-dd HH:mm:ss") ?? "";
+                    worksheet.Cell(row, 1).Value = summary.Email ?? "";
+                    worksheet.Cell(row, 2).Value = summary.Date?.ToString("yyyy-MM-dd HH:mm:ss") ?? "";
 
                     var submissionsDict = (summary.Submissions ?? []).ToDictionary(
                     s => s.Name ?? "",
@@ -492,13 +543,13 @@ namespace NemetschekEventManagerBackend.Extensions
                         var name = submitNames[i];
                         if (submissionsDict.TryGetValue(name, out var value))
                         {
-                            var cell = worksheet.Cell(row, i + 2);
+                            var cell = worksheet.Cell(row, i + 3);
                             cell.Value = value;
                             cell.Style.Alignment.WrapText = true;
                         }
                         else
                         {
-                            worksheet.Cell(row, i + 2).Value = "";
+                            worksheet.Cell(row, i + 3).Value = "";
                         }
                     }
 

@@ -42,6 +42,7 @@ namespace NemetschekEventManagerBackend.Models.DTOs
             return new SubmitSummaryDto
             {
                 UserId = submit.UserId,
+                Email = submit.User?.Email,
                 Date = submit.Date,
                 Submissions = submit.Submissions
             };
