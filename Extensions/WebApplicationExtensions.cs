@@ -425,6 +425,7 @@ namespace NemetschekEventManagerBackend.Extensions
                 var csvBuilder = new StringBuilder();
 
                 // Header
+                csvBuilder.Append("Email,");
                 csvBuilder.Append("Date");
                 foreach (var name in submitNames)
                 {
@@ -435,12 +436,16 @@ namespace NemetschekEventManagerBackend.Extensions
                 // Rows
                 foreach (var summary in data)
                 {
+                    var email = summary.Email ?? "";
+
+                    csvBuilder.Append($"{email},");
+
                     var date = summary.Date?.ToString("yyyy-MM-dd HH:mm:ss") ?? "";
                     csvBuilder.Append($"\"{date}\"");
 
                     var submissionsDict = (summary.Submissions ?? []).ToDictionary(
                         s => s.Name ?? "",
-                        s => s.Options != null ? string.Join("; \n", s.Options.Select(o => o.Replace("\"", "\"\""))) : ""
+                        s => s.Options != null ? string.Join(" \n", s.Options.Select(o => o.Replace("\"", "\"\""))) : ""
                     );
 
                     foreach (var name in submitNames)
@@ -494,13 +499,14 @@ namespace NemetschekEventManagerBackend.Extensions
                 var worksheet = workbook.Worksheets.Add("Submissions");
 
                 // Header row
-                worksheet.Cell(1, 1).Value = "Date";
+                worksheet.Cell(1, 1).Value = "Email";
+                worksheet.Cell(1, 2).Value = "Date";
                 for (int i = 0; i < submitNames.Count; i++)
                 {
-                    worksheet.Cell(1, i + 2).Value = submitNames[i];
+                    worksheet.Cell(1, i + 3).Value = submitNames[i];
                 }
 
-                int totalColumns = submitNames.Count + 1;
+                int totalColumns = submitNames.Count + 2;
                 var headerRange = worksheet.Range(1, 1, 1, totalColumns);
                 headerRange.Style.Font.Bold = true;
                 headerRange.Style.Fill.BackgroundColor = XLColor.LightBlue;
@@ -511,7 +517,8 @@ namespace NemetschekEventManagerBackend.Extensions
                 int row = 2;
                 foreach (var summary in data)
                 {
-                    worksheet.Cell(row, 1).Value = summary.Date?.ToString("yyyy-MM-dd HH:mm:ss") ?? "";
+                    worksheet.Cell(row, 1).Value = summary.Email ?? "";
+                    worksheet.Cell(row, 2).Value = summary.Date?.ToString("yyyy-MM-dd HH:mm:ss") ?? "";
 
                     var submissionsDict = (summary.Submissions ?? []).ToDictionary(
                     s => s.Name ?? "",
@@ -522,13 +529,13 @@ namespace NemetschekEventManagerBackend.Extensions
                         var name = submitNames[i];
                         if (submissionsDict.TryGetValue(name, out var value))
                         {
-                            var cell = worksheet.Cell(row, i + 2);
+                            var cell = worksheet.Cell(row, i + 3);
                             cell.Value = value;
                             cell.Style.Alignment.WrapText = true;
                         }
                         else
                         {
-                            worksheet.Cell(row, i + 2).Value = "";
+                            worksheet.Cell(row, i + 3).Value = "";
                         }
                     }
 
