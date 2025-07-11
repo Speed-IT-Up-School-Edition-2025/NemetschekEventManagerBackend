@@ -46,7 +46,7 @@ namespace NemetschekEventManagerBackend.Models.DTOs
                     Type = f.Type,
                     Name = f.Name,
                     Options = f.Options,
-                    Required = false
+                    Required = f.Required
                 }).ToList();
             }
 

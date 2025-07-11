@@ -17,15 +17,7 @@ var app = builder.Build();
 
 app.ApplyMigrations();
 
-using (var scope = app.Services.CreateScope())
-{
-    var services = scope.ServiceProvider;
-    var userManager = services.GetRequiredService<UserManager<User>>();
-    var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
-    await AdminSeeder.SeedAsync(userManager, roleManager);
-    await RoleSeeder.SeedAsync(roleManager);
-}
-
+await app.ConfigureSeederAsync();
 
 // IN DEVELOPMENT STUFF HERE
 if (app.Environment.IsDevelopment())
