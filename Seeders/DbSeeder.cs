@@ -15,7 +15,9 @@ namespace NemetschekEventManagerBackend.Seeders
 
         public async Task Seed()
         {
-            await _context.Database.EnsureDeletedAsync();
+            if(_context.Users.Any() || _context.Events.Any() || _context.Submits.Any())
+                return;
+
             await _context.Database.EnsureCreatedAsync();
 
             // Create users
