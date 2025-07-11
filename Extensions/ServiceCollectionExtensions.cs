@@ -18,6 +18,7 @@ namespace NemetschekEventManagerBackend.Extensions
         {
             services.AddScoped<IEventService, EventService>();
             services.AddScoped<ISubmitService, SubmitService>();
+            services.AddTransient<DbSeeder>();
             return services;
         }
         // Add application DbContext to the IServiceCollection
@@ -118,11 +119,5 @@ namespace NemetschekEventManagerBackend.Extensions
 
             return services;
         }
-
-        public static IServiceCollection Seeder(this IServiceCollection services)
-        {
-            services.AddHostedService<ApplicationSeeder>();
-            return services;
-		}
 	}
 }

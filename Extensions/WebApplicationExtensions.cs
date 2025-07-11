@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
 using NemetschekEventManagerBackend.Models;
 using NemetschekEventManagerBackend.Models.DTOs;
+using NemetschekEventManagerBackend.Seeders;
 using System.Security.Claims;
 using System.Text;
 
@@ -25,6 +26,22 @@ namespace NemetschekEventManagerBackend.Extensions
                 options.RoutePrefix = "docs"; // Swagger UI at https://localhost:<port>/docs
             });
         }
+        public static async Task ConfigureDemoSeederAsync(this WebApplication app)
+        {
+            using var scope = app.Services.CreateScope();
+            var services = scope.ServiceProvider;
+
+            var userManager = services.GetRequiredService<UserManager<User>>();
+            var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+            var dbContext = services.GetRequiredService<EventDbContext>();
+
+            await RoleSeeder.SeedAsync(roleManager);
+            await AdminSeeder.SeedAsync(userManager, roleManager);
+
+            var dbSeeder = new DbSeeder(dbContext);
+            await dbSeeder.Seed();
+        }
+
 
         // Map Identity API endpoints
         public static void MapEventEndpoints(this WebApplication app)

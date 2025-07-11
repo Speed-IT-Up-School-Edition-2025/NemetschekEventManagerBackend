@@ -12,7 +12,6 @@ builder.Services
     .AddAppIdentity()
     .AddCorsSupport()
     .AddAppSwagger()
-    .Seeder()
 	.SetupMailer(builder.Configuration);
 
 var app = builder.Build();
@@ -34,6 +33,7 @@ if (app.Environment.IsDevelopment())
 {
     //Swagger in DEV
     app.ConfigureSwagger();
+    await app.ConfigureDemoSeederAsync();
 }
 // CORS support
 app.UseCors("AllowAll");
