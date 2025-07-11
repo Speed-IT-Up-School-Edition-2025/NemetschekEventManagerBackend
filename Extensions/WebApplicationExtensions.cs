@@ -134,7 +134,22 @@ namespace NemetschekEventManagerBackend.Extensions
                 return Results.Ok(submits);
             })
             .WithSummary("Get all submits for event")
-            .WithDescription("Fetches a submission for the authenticated user by event ID. Returns 404 if the submission does not exist.");
+            .WithDescription("Get all submits for event. Returns empty if the submissions do not exist.");
+
+            // GET submissions for current user by eventId
+            app.MapGet("/submissions/{eventId}/me",
+            [Authorize]
+            (ISubmitService service, int eventId, ClaimsPrincipal user) =>
+            {
+                var userId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub");
+                if (string.IsNullOrEmpty(userId))
+                    return Results.Unauthorized();
+
+                var submits = service.GetSubmitByEventAndUser(eventId, userId);
+                return submits != null ? Results.Ok(submits) : Results.BadRequest();
+            })
+            .WithSummary("Fetch current authenticated user for event")
+            .WithDescription("Fetches a submission for the authenticated user by event ID. Returns 400 if the submission does not exist.");
 
             // Create new submit for authenticated user
             app.MapPost("/submissions/{eventId}",

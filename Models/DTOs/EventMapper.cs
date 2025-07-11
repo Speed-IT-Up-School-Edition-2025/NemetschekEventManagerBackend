@@ -82,6 +82,7 @@ namespace NemetschekEventManagerBackend.Models.DTOs
                 PeopleLimit = ev.PeopleLimit,
                 SpotsLeft = ev.PeopleLimit - ev.Submissions!.Count(),
                 UserSignedUp = ev.Submissions!.Where(s => s.UserId == userId).Any(),
+                Fields = ev.Fields,
                 CreatedAt = ev.CreatedAt,
                 UpdatedAt = ev.UpdatedAt
             };
