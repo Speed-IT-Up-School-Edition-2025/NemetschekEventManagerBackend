@@ -46,7 +46,7 @@ namespace NemetschekEventManagerBackend.Models.DTOs
                     Type = f.Type,
                     Name = f.Name,
                     Options = f.Options,
-                    Required = false
+                    Required = f.Required
                 }).ToList();
             }
 
@@ -64,6 +64,25 @@ namespace NemetschekEventManagerBackend.Models.DTOs
                 Location = ev.Location,
                 PeopleLimit = ev.PeopleLimit,
                 SpotsLeft = ev.PeopleLimit - ev.Submissions!.Count(),
+                CreatedAt = ev.CreatedAt,
+                UpdatedAt = ev.UpdatedAt
+            };
+        }
+
+        public static EventDetailsDto ToDetailsDto(this Event ev, string userId)
+        {
+            return new EventDetailsDto
+            {
+                Id = ev.Id,
+                Name = ev.Name,
+                Description = ev.Description,
+                Date = ev.Date,
+                SignUpDeadline = ev.SignUpDeadline,
+                Location = ev.Location,
+                PeopleLimit = ev.PeopleLimit,
+                SpotsLeft = ev.PeopleLimit - ev.Submissions!.Count(),
+                UserSignedUp = ev.Submissions!.Where(s => s.UserId == userId).Any(),
+                Fields = ev.Fields,
                 CreatedAt = ev.CreatedAt,
                 UpdatedAt = ev.UpdatedAt
             };

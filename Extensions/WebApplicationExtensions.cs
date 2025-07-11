@@ -1,4 +1,5 @@
 ﻿using ClosedXML.Excel;
+using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
@@ -43,6 +44,26 @@ namespace NemetschekEventManagerBackend.Extensions
         }
 
 
+        //Admin Seeder
+        public static async Task ConfigureSeederAsync(this WebApplication app)
+        {
+            using var scope = app.Services.CreateScope();
+            var services = scope.ServiceProvider;
+
+            var userManager = services.GetRequiredService<UserManager<User>>();
+            var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+            var dbContext = services.GetRequiredService<EventDbContext>();
+
+            // Seed roles (static)
+            await RoleSeeder.SeedAsync(roleManager);
+
+            // Seed admin user (static)
+            await AdminSeeder.SeedAsync(userManager, roleManager);
+        }
+
+
+
+
         // Map Identity API endpoints
         public static void MapEventEndpoints(this WebApplication app)
         {
@@ -83,10 +104,14 @@ namespace NemetschekEventManagerBackend.Extensions
             // Get event by ID
             app.MapGet("/events/{id}",
             [Authorize]
-            (IEventService service, int id) =>
+            (IEventService service, int id, ClaimsPrincipal user) =>
             {
-                var ev = service.GetEventById(id);
-                return ev is not null ? Results.Ok(ev) : Results.NotFound();
+                var userId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub");
+                if (string.IsNullOrEmpty(userId))
+                    return Results.Unauthorized();
+
+                var ev = service.GetEventById(id, userId);
+                return Results.Ok(ev);
             })
                 .WithSummary("Get event by ID")
                 .WithDescription("Fetches an event by its unique identifier (ID). If the event doesn't exist, returns a 404 error.");
@@ -118,7 +143,7 @@ namespace NemetschekEventManagerBackend.Extensions
             (IEventService service, int id, UpdateEventDto dto) =>
             {
                 var success = service.Update(id, dto);
-                return success ? Results.Ok() : Results.NotFound();
+                return success ? Results.Ok() : Results.BadRequest();
             })
             .WithSummary("Update event by ID")
             .WithDescription("Updates an existing event using its ID and provided details. Returns 404 if not found.");
@@ -129,7 +154,7 @@ namespace NemetschekEventManagerBackend.Extensions
             async (IEventService service, int id, IEmailSender emailSender) =>
             {
                 var success = await service.RemoveById(id, emailSender);
-                return success ? Results.Ok() : Results.NotFound();
+                return success ? Results.Ok() : Results.BadRequest();
             });
 
             //// SUBMIT ENDPOINTS
@@ -141,12 +166,25 @@ namespace NemetschekEventManagerBackend.Extensions
             (ISubmitService service, int eventId) =>
             {
                 var submits = service.GetSubmitsByEventId(eventId);
-                return submits.Count == 0
-                    ? Results.NotFound()
-                    : Results.Ok(submits);
+                return Results.Ok(submits);
             })
-            .WithSummary("Get submit for authenticated user")
-            .WithDescription("Fetches a submission for the authenticated user by event ID. Returns 404 if the submission does not exist.");
+            .WithSummary("Get all submits for event")
+            .WithDescription("Get all submits for event. Returns empty if the submissions do not exist.");
+
+            // GET submissions for current user by eventId
+            app.MapGet("/submissions/{eventId}/me",
+            [Authorize]
+            (ISubmitService service, int eventId, ClaimsPrincipal user) =>
+            {
+                var userId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub");
+                if (string.IsNullOrEmpty(userId))
+                    return Results.Unauthorized();
+
+                var submits = service.GetSubmitByEventAndUser(eventId, userId);
+                return submits != null ? Results.Ok(submits) : Results.BadRequest();
+            })
+            .WithSummary("Fetch current authenticated user for event")
+            .WithDescription("Fetches a submission for the authenticated user by event ID. Returns 400 if the submission does not exist.");
 
             // Create new submit for authenticated user
             app.MapPost("/submissions/{eventId}",
