@@ -309,12 +309,12 @@ namespace NemetschekEventManagerBackend.Extensions
 					          var result = await userManager.AddToRoleAsync(user_to_admin, "Administrator");
                     if (result.Succeeded)
                     {
-                        return Results.Ok("User has been made an administrator.");
+                        return Results.Ok(new { error = "Потребителят вече е администратор." });
                     }
                     else
                     {
                         await userManager.AddToRoleAsync(user_to_admin, "User"); // Ensure the user has a default role
-                        return Results.BadRequest("Failed to make user an administrator.");
+                        return Results.BadRequest(new { error = "Потребителят не беше направен администратор." });
                     }
                 }
                 catch (Exception ex)
@@ -342,7 +342,7 @@ namespace NemetschekEventManagerBackend.Extensions
 
                 if (user_to_remove.Email == seededAdminEmail)
                 {
-                    return Results.BadRequest("Cannot remove the original administrator.");
+                    return Results.BadRequest(new { error = "Не можете да премахнете началният администратор." });
                 }
 
                 var result = await manager.RemoveFromRoleAsync(user_to_remove!, "Administrator");
