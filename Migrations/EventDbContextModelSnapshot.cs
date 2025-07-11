@@ -184,6 +184,9 @@ namespace NemetschekEventManagerBackend.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("PeopleLimit")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("SignUpDeadline")
                         .HasColumnType("datetime2");
 

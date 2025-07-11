@@ -13,6 +13,7 @@ namespace NemetschekEventManagerBackend.Models.DTOs
                 Location = dto.Location ?? string.Empty,
                 Date = dto.Date,
                 SignUpDeadline = dto.SignUpDeadline ?? dto.Date ?? DateTime.UtcNow,
+                PeopleLimit = dto.PeopleLimit,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
                 Fields = dto.Fields?.Select(f => new Field
@@ -32,6 +33,7 @@ namespace NemetschekEventManagerBackend.Models.DTOs
             if (dto.Location != null) ev.Location = dto.Location;
             if (dto.Date.HasValue) ev.Date = dto.Date;
             if (dto.SignUpDeadline.HasValue) ev.SignUpDeadline = dto.SignUpDeadline;
+            if (dto.PeopleLimit != null) ev.PeopleLimit = dto.PeopleLimit; 
 
             // For Fields, you might want to handle add/update/remove carefully
             if (dto.Fields != null)
@@ -58,6 +60,8 @@ namespace NemetschekEventManagerBackend.Models.DTOs
                 Date = ev.Date,
                 SignUpDeadline = ev.SignUpDeadline,
                 Location = ev.Location,
+                PeopleLimit = ev.PeopleLimit,
+                SpotsLeft = ev.PeopleLimit - ev.Submissions!.Count(),
                 CreatedAt = ev.CreatedAt,
                 UpdatedAt = ev.UpdatedAt
             };

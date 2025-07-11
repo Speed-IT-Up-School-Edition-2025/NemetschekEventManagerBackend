@@ -10,6 +10,8 @@ namespace NemetschekEventManagerBackend.Models.DTOs
         public DateTime? Date { get; set; }
         public DateTime? SignUpDeadline { get; set; }
         public string? Location { get; set; }
+        public int? PeopleLimit { get; set; }
+        public int? SpotsLeft { get; set; }
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
     }
@@ -21,6 +23,7 @@ namespace NemetschekEventManagerBackend.Models.DTOs
         public DateTime? Date { get; set; }
         public DateTime? SignUpDeadline { get; set; }
         public string? Location { get; set; }
+        public int? PeopleLimit { get; set; }
         public IList<Field>? Fields { get; set; }
     }
 
@@ -31,6 +34,7 @@ namespace NemetschekEventManagerBackend.Models.DTOs
         public DateTime? Date { get; set; }
         public DateTime? SignUpDeadline { get; set; }
         public string? Location { get; set; }
+        public int? PeopleLimit { get; set; }
         public IList<Field>? Fields { get; set; }
     }
 
