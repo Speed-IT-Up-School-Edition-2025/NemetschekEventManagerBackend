@@ -6,6 +6,8 @@ namespace NemetschekEventManagerBackend.Models.DTOs
     {
         public static Event ToEntity(CreateEventDto dto)
         {
+            if (dto.PeopleLimit < 1) { dto.PeopleLimit = null; }
+
             return new Event
             {
                 Name = dto.Name ?? string.Empty,

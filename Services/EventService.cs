@@ -48,7 +48,6 @@ public class EventService : IEventService
             .ToList();
     }
 
-
     public List<EventSummaryDto> GetEvents(DateTime? fromDate, DateTime? toDate, bool? activeOnly, bool alphabetical = false, bool sortDescending = false)
     {
         // Load events from the database
