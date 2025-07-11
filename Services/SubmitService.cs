@@ -1,9 +1,8 @@
-using Microsoft.AspNetCore.Identity.UI.Services;
+﻿using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
 using NemetschekEventManagerBackend;
 using NemetschekEventManagerBackend.Models;
 using NemetschekEventManagerBackend.Models.DTOs;
-using System.Threading.Tasks;
 
 public class SubmitService : ISubmitService
 {
@@ -27,31 +26,31 @@ public class SubmitService : ISubmitService
             .FirstOrDefault(s => s.EventId == eventId && s.UserId == userId);
     }
 
-    public bool Create(int eventId, string userId, CreateSubmitDto dto)
+    public IResult Create(int eventId, string userId, CreateSubmitDto dto)
     {
         if (_context.Submits.Any(s => s.EventId == eventId && s.UserId == userId))
-            return false;
+            return Results.Conflict(new { error = "A submission already exists for this user and event" });
 
         if (_context.Submits.Where(e => e.EventId == eventId).Count() >= _context.Events.Find(eventId)!.PeopleLimit)
-            return false;
+            return Results.BadRequest(new { error = "No spots left in event" });
 
         var entity = SubmitMapper.ToEntity(eventId, userId, dto);
         _context.Submits.Add(entity);
-        return _context.SaveChanges() > 0;
+        return _context.SaveChanges() > 0 ? Results.Created($"/submits/{eventId}", dto) : Results.InternalServerError("Failed to save submit");
     }
 
-    public bool UpdateSubmission(int eventId, string userId, UpdateSubmitDto dto)
+    public IResult UpdateSubmission(int eventId, string userId, UpdateSubmitDto dto)
     {
         var submit = GetSubmitByEventAndUser(eventId, userId);
         if (submit == null)
-            return false;
+            return Results.BadRequest(new { error = "Не е намерена заявка"});
 
         SubmitMapper.UpdateEntity(submit, dto);
         submit.Date = DateTime.UtcNow;
         submit.UpdatedAt = DateTime.UtcNow;
 
         _context.Submits.Update(submit);
-        return _context.SaveChanges() > 0;
+        return _context.SaveChanges() > 0 ? Results.Created($"/submits/{submit.EventId}", new { submit }) : Results.InternalServerError(new { error = "Oбновяването на заявката мина неуспешно." });
     }
 
 
