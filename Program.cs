@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using NemetschekEventManagerBackend;
 using NemetschekEventManagerBackend.Extensions;
 using NemetschekEventManagerBackend.Models;
 using NemetschekEventManagerBackend.Seeders;
@@ -11,20 +12,22 @@ builder.Services
     .AddAppIdentity()
     .AddCorsSupport()
     .AddAppSwagger()
-    .SetupMailer(builder.Configuration);
+	.SetupMailer(builder.Configuration);
 
 var app = builder.Build();
 
 app.ApplyMigrations();
-
-await app.ConfigureSeederAsync();
 
 // IN DEVELOPMENT STUFF HERE
 if (app.Environment.IsDevelopment())
 {
     //Swagger in DEV
     app.ConfigureSwagger();
+    await app.ConfigureDemoSeederAsync();
 }
+
+await app.ConfigureSeederAsync();
+
 // CORS support
 app.UseCors("AllowAll");
 

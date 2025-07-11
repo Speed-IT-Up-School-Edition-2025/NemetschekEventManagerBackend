@@ -7,6 +7,7 @@ using Microsoft.OpenApi.Models;
 using NemetschekEventManagerBackend.Models;
 using System.Reflection;
 using NemetschekEventManagerBackend.Interfaces;
+using NemetschekEventManagerBackend.Seeders;
 
 namespace NemetschekEventManagerBackend.Extensions
 {
@@ -17,6 +18,7 @@ namespace NemetschekEventManagerBackend.Extensions
         {
             services.AddScoped<IEventService, EventService>();
             services.AddScoped<ISubmitService, SubmitService>();
+            services.AddTransient<DbSeeder>();
             return services;
         }
         // Add application DbContext to the IServiceCollection
@@ -117,5 +119,5 @@ namespace NemetschekEventManagerBackend.Extensions
 
             return services;
         }
-    }
+	}
 }

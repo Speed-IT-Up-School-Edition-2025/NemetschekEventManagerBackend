@@ -27,6 +27,22 @@ namespace NemetschekEventManagerBackend.Extensions
                 options.RoutePrefix = "docs"; // Swagger UI at https://localhost:<port>/docs
             });
         }
+        public static async Task ConfigureDemoSeederAsync(this WebApplication app)
+        {
+            using var scope = app.Services.CreateScope();
+            var services = scope.ServiceProvider;
+
+            var userManager = services.GetRequiredService<UserManager<User>>();
+            var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+            var dbContext = services.GetRequiredService<EventDbContext>();
+
+            await RoleSeeder.SeedAsync(roleManager);
+            await AdminSeeder.SeedAsync(userManager, roleManager);
+
+            var dbSeeder = new DbSeeder(dbContext);
+            await dbSeeder.Seed();
+        }
+
 
         //Admin Seeder
         public static async Task ConfigureSeederAsync(this WebApplication app)
@@ -131,8 +147,6 @@ namespace NemetschekEventManagerBackend.Extensions
             })
             .WithSummary("Update event by ID")
             .WithDescription("Updates an existing event using its ID and provided details. Returns 404 if not found.");
-
-
 
             // Delete event by ID
             app.MapDelete("/events/{id}",
