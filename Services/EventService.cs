@@ -85,9 +85,14 @@ public class EventService : IEventService
             var bulgarianCulture = new CultureInfo("bg-BG");
             var comparer = StringComparer.Create(bulgarianCulture, ignoreCase: true);
 
-            events = sortDescending
-                ? events.OrderByDescending(e => e.Name, comparer).ToList()
-                : events.OrderBy(e => e.Name, comparer).ToList();
+            events = (sortDescending
+                ? events.OrderByDescending(e =>
+                    IsEnglish(e.Name) ? 0 : 1) // 0: English group, 1: Bulgarian
+                    .ThenByDescending(e => e.Name, comparer)
+                : events.OrderBy(e =>
+                    IsEnglish(e.Name) ? 0 : 1)
+                    .ThenBy(e => e.Name, comparer))
+                .ToList();
         }
         else
         {
@@ -99,6 +104,13 @@ public class EventService : IEventService
 
         // Convert to DTOs
         return events.Select(e => e.ToSummaryDto()).ToList();
+    }
+
+    private bool IsEnglish(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return false;
+        char firstChar = input.Trim()[0];
+        return (firstChar >= 'A' && firstChar <= 'Z') || (firstChar >= 'a' && firstChar <= 'z');
     }
 
     public async Task<bool> RemoveById(int eventId, IEmailSender _emailSender)

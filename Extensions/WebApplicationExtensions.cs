@@ -121,7 +121,7 @@ namespace NemetschekEventManagerBackend.Extensions
 
 
             // GET submissions by eventId
-            app.MapGet("/submits/{eventId}",
+            app.MapGet("/submissions/{eventId}",
             [Authorize]
             (ISubmitService service, int eventId) =>
             {
@@ -134,7 +134,7 @@ namespace NemetschekEventManagerBackend.Extensions
             .WithDescription("Fetches a submission for the authenticated user by event ID. Returns 404 if the submission does not exist.");
 
             // Create new submit for authenticated user
-            app.MapPost("/submits/{eventId}",
+            app.MapPost("/submissions/{eventId}",
             [Authorize]
             (int eventId, CreateSubmitDto dto, ISubmitService service, ClaimsPrincipal user) =>
             {
@@ -149,7 +149,7 @@ namespace NemetschekEventManagerBackend.Extensions
             .WithDescription("Creates a new submit record for the authenticated user. Returns 409 if one already exists.");
 
             // PUT endpoint
-            app.MapPut("/submits/{eventId}",
+            app.MapPut("/submissions/{eventId}",
             [Authorize]
             (int eventId, UpdateSubmitDto dto, ISubmitService service, ClaimsPrincipal user) =>
             {
