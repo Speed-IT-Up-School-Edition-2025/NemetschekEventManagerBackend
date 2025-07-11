@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Identity.UI.Services;
+﻿using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
 using NemetschekEventManagerBackend;
 using NemetschekEventManagerBackend.Models;
@@ -57,71 +57,70 @@ public class EventService : IEventService
     {
         List<Event> events = _context.Events.Include(e => e.Submissions).ToList();
 
-        // Filter by date range
+        // Apply filters
         if (fromDate.HasValue)
         {
             var from = fromDate.Value.Date;
-            events = events
-                .Where(e => e.Date.HasValue && e.Date.Value.Date >= from)
-                .ToList();
+            events = events.Where(e => e.Date.HasValue && e.Date.Value.Date >= from).ToList();
         }
 
         if (toDate.HasValue)
         {
             var to = toDate.Value.Date;
-            events = events
-                .Where(e => e.Date.HasValue && e.Date.Value.Date <= to)
-                .ToList();
+            events = events.Where(e => e.Date.HasValue && e.Date.Value.Date <= to).ToList();
         }
 
-        // Filter by active only
         if (activeOnly == true)
         {
             var now = DateTime.UtcNow;
-            events = events
-                .Where(e => e.SignUpDeadline.HasValue && e.SignUpDeadline.Value > now)
-                .ToList();
+            events = events.Where(e => e.SignUpDeadline.HasValue && e.SignUpDeadline.Value > now).ToList();
         }
 
-        // Sort based on the required custom priority
+        // Determine whether to apply the custom sort
+        bool filtersApplied = fromDate.HasValue || toDate.HasValue || activeOnly == true;
         var nowTime = DateTime.UtcNow;
 
-        events = events
-            .OrderBy(e =>
-            {
-                bool isActive = e.SignUpDeadline.HasValue && e.SignUpDeadline.Value > nowTime;
-                bool hasFreeSpots = e.PeopleLimit == null || e.Submissions.Count < e.PeopleLimit;
-                // Priority: 0 - active with free spots, 1 - active full, 2 - inactive
-                return isActive
-                    ? (hasFreeSpots ? 0 : 1)
-                    : 2;
-            })
-            .ThenBy(e =>
-            {
-                if (alphabetical)
+        // Sorting
+        if (!filtersApplied)
+        {
+            // Apply default sort: active w/ spots → active full → inactive
+            events = events
+                .OrderBy(e =>
                 {
-                    return IsEnglish(e.Name) ? 0 : 1;
-                }
-                return 0; // dummy for date sorting fallback
-            })
-            .ThenBy(e =>
+                    bool isActive = e.SignUpDeadline.HasValue && e.SignUpDeadline.Value > nowTime;
+                    bool hasSpots = e.PeopleLimit == null || e.Submissions.Count < e.PeopleLimit;
+                    return isActive ? (hasSpots ? 0 : 1) : 2;
+                })
+                .ThenBy(e => alphabetical ? (IsEnglish(e.Name) ? 0 : 1) : 0)
+                .ThenBy(e => alphabetical ? e.Name : null)
+                .ThenBy(e => !alphabetical ? e.Date : null)
+                .ToList();
+        }
+        else
+        {
+            // Skip custom status-based sort when filters are applied
+            if (alphabetical)
             {
-                if (alphabetical)
-                {
-                    var comparer = StringComparer.Create(new CultureInfo("bg-BG"), ignoreCase: true);
-                    return e.Name;
-                }
-                return null;
-            })
-            .ThenBy(e => !alphabetical ? e.Date : null)
-            .ToList();
+                events = events
+                    .OrderBy(e => IsEnglish(e.Name) ? 0 : 1)
+                    .ThenBy(e => e.Name, StringComparer.Create(new CultureInfo("bg-BG"), ignoreCase: true))
+                    .ToList();
+            }
+            else
+            {
+                events = events
+                    .OrderBy(e => e.Date)
+                    .ToList();
+            }
+        }
 
         if (sortDescending)
-            events.Reverse(); // Reverses entire list after prioritization
+        {
+            events.Reverse();
+        }
 
         return events.Select(e => e.ToSummaryDto()).ToList();
     }
-
 
     private bool IsEnglish(string input)
     {
