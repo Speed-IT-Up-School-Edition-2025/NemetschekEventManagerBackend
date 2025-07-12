@@ -74,6 +74,8 @@ namespace NemetschekEventManagerBackend.Extensions
             [Authorize]
             (
                 IEventService service,
+                HttpContext http,
+                ClaimsPrincipal user,
                 DateTime? fromDate,
                 DateTime? toDate,
                 bool? activeOnly,
@@ -81,7 +83,9 @@ namespace NemetschekEventManagerBackend.Extensions
                 bool sortDescending = false
             ) =>
             {
-                return service.GetEvents(fromDate, toDate, activeOnly, alphabetical, sortDescending);
+                var userId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub");
+
+                return service.GetEvents(fromDate, toDate, activeOnly, userId, alphabetical, sortDescending);
             })
             .WithSummary("Search for events")
             .WithDescription("Fetches events with optional filters: date range, activity status, and sorting options.");
@@ -226,7 +230,7 @@ namespace NemetschekEventManagerBackend.Extensions
                    return Results.Unauthorized();
 
                var success = await service.RemoveUserFromEvent(eventId, userId, emailSender);
-                return success ? Results.Ok() : Results.NotFound();
+               return success;
             })
             .WithSummary("Removes authenticated user from event")
             .WithDescription("Allows user to remove himself from an event and notifies the user by email.");

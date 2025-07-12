@@ -30,10 +30,13 @@ public class SubmitService : ISubmitService
     public IResult Create(int eventId, string userId, CreateSubmitDto dto)
     {
         if (_context.Submits.Any(s => s.EventId == eventId && s.UserId == userId))
-            return Results.Conflict(new { error = "A submission already exists for this user and event" });
+            return Results.Conflict(new { error = "Потребителят е вече записан за това събитие!" });
 
         if (_context.Submits.Where(e => e.EventId == eventId).Count() >= _context.Events.Find(eventId)!.PeopleLimit)
-            return Results.BadRequest(new { error = "No spots left in event" });
+            return Results.BadRequest(new { error = "Няма свободни места!" });
+
+        if (_context.Events.Find(eventId).SignUpDeadline < DateTime.UtcNow)
+            return Results.BadRequest(new { error = "Срокът за записване е изтекъл!"});
 
         var entity = SubmitMapper.ToEntity(eventId, userId, dto);
         _context.Submits.Add(entity);
@@ -45,6 +48,9 @@ public class SubmitService : ISubmitService
         var submit = GetSubmitByEventAndUser(eventId, userId);
         if (submit == null)
             return Results.BadRequest(new { error = "Не е намерена заявка"});
+
+        if (_context.Events.Find(eventId).SignUpDeadline < DateTime.UtcNow)
+            return Results.BadRequest(new { error = "Срокът за записване е изтекъл!" });
 
         SubmitMapper.UpdateEntity(submit, dto);
         submit.Date = DateTime.UtcNow;
@@ -74,7 +80,7 @@ public class SubmitService : ISubmitService
             : "User";
 
         var eventName = submission.Event.Name;
-        var eventDate = submission.Event.Date?.ToString("MMMM d, yyyy") ?? "a future date";
+        var eventDate = submission.Event.Date?.ToString("MMMM d, yyyy") ?? "бъдеща дата";
 
         // Remove the submission
         _context.Submits.Remove(submission);
@@ -82,25 +88,26 @@ public class SubmitService : ISubmitService
 
         // Send email only if removal succeeded
         if (success)
-        {   
+        {
             await _emailSender.SendEmailAsync(
-                email: userEmail,
-                subject: $"Removed from Event: {eventName}",
-                htmlMessage: $@"
-                    <html>
-                        <body>
-                            <p>Dear {userName},</p>
-                            <p>An administrator has removed you from the event <strong>{eventName}</strong> scheduled for {eventDate}.</p>
-                            <p>If you have any questions, please contact an administrator.</p>                           
-                        </body>
-                    </html>"
-            );
+            email: userEmail,
+            subject: $"Премахнат от събитието: {eventName}",
+            htmlMessage: $@"
+                <html>
+                    <body>
+                        <p>Уважаеми/а {userName},</p>
+                        <p>Администратор ви е премахнал от събитието <strong>{eventName}</strong>, насрочено за {eventDate}.</p>
+                        <p>Ако имате въпроси, моля свържете се с администратор.</p>                           
+                    </body>
+                </html>"
+);
+
         }
 
         return success;
     }
     //User removes himself from the event
-    public async Task<bool> RemoveUserFromEvent(int eventId, string userId, IEmailSender _emailSender)
+    public async Task<IResult> RemoveUserFromEvent(int eventId, string userId, IEmailSender _emailSender)
     {
         // Fetch submission with related user and event data
         var submission = await _context.Submits
@@ -108,8 +115,14 @@ public class SubmitService : ISubmitService
             .Include(s => s.Event)
             .FirstOrDefaultAsync(s => s.EventId == eventId && s.UserId == userId);
 
+        if (submission == null)
+            return Results.BadRequest();
+
         if (submission?.User == null || submission.Event == null)
-            return false;
+            return Results.InternalServerError();
+
+        if (_context.Events.Find(eventId).SignUpDeadline < DateTime.UtcNow)
+            return Results.BadRequest(new { error = "Срокът за отписване е изтекъл!" });
 
         // Prepare email details
         var userEmail = submission.User.Email;
@@ -118,7 +131,7 @@ public class SubmitService : ISubmitService
             : "User";
 
         var eventName = submission.Event.Name;
-        var eventDate = submission.Event.Date?.ToString("MMMM d, yyyy") ?? "a future date";
+        var eventDate = submission.Event.Date?.ToString("MMMM d, yyyy") ?? "бъдеща дата";
 
         // Remove the submission
         _context.Submits.Remove(submission);
@@ -129,19 +142,19 @@ public class SubmitService : ISubmitService
         {
             await _emailSender.SendEmailAsync(
                 email: userEmail,
-                subject: $"Removed from Event: {eventName}",
+                subject: $"Премахнат от събитието: {eventName}",
                 htmlMessage: $@"
                     <html>
                         <body>
-                       <p>Dear {userName},</p>
-                       <p>You have successfully unsubmitted from the event <strong>{eventName}</strong> scheduled for {eventDate}.</p>
-                      <p>If this was a mistake, you can re-submit at any time before the sign-up deadline.</p>
+                            <p>Уважаеми/а {userName},</p>
+                            <p>Вие успешно се отписахте от събитието <strong>{eventName}</strong>, насрочено за {eventDate}.</p>
+                            <p>Ако това е било грешка, можете да се запишете отново по всяко време преди крайния срок за регистрация.</p>
                         </body>
                     </html>"
             );
         }
 
-        return success;
+        return success ? Results.Ok() : Results.InternalServerError();
     }
 
 

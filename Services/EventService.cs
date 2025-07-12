@@ -34,11 +34,10 @@ public class EventService : IEventService
         return _context.Events.Include(e => e.Submissions).First(e => e.Id == eventId).ToDetailsDto(userId);
     }
 
-    public List<EventSummaryDto> GetEvents()
+    public List<Event> GetEvents()
     {
         return _context.Events
             .AsNoTracking()
-            .Select(e => e.ToSummaryDto())
             .ToList();
     }
 
@@ -49,11 +48,11 @@ public class EventService : IEventService
             .ThenInclude(e => e.Submissions)
             .Where(s => s.UserId == userId && s.Event != null)
             .Select(s => s.Event!)
-            .Select(e => e.ToSummaryDto())
+            .Select(e => e.ToSummaryDto(userId))
             .ToList();
     }
 
-    public List<EventSummaryDto> GetEvents(DateTime? fromDate, DateTime? toDate, bool? activeOnly, bool alphabetical = false, bool sortDescending = false)
+    public List<EventSummaryDto> GetEvents(DateTime? fromDate, DateTime? toDate, bool? activeOnly, string userId, bool alphabetical = false, bool sortDescending = false)
     {
         List<Event> events = _context.Events.Include(e => e.Submissions).ToList();
 
@@ -119,7 +118,7 @@ public class EventService : IEventService
             events.Reverse();
         }
 
-        return events.Select(e => e.ToSummaryDto()).ToList();
+        return events.Select(e => e.ToSummaryDto(userId)).ToList();
     }
 
     private bool IsEnglish(string input)

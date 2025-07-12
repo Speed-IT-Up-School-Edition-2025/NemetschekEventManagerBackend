@@ -11,7 +11,7 @@ namespace NemetschekEventManagerBackend
         Submit? GetSubmitByEventAndUser(int eventId, string userId);
         IResult Create(int eventId, string userId, CreateSubmitDto dto);
         IResult UpdateSubmission(int eventId, string userId, UpdateSubmitDto dto);
-        Task<bool> RemoveUserFromEvent(int eventId, string userId, IEmailSender emailSender);
+        Task<IResult> RemoveUserFromEvent(int eventId, string userId, IEmailSender emailSender);
         Task<bool> AdminRemoveUserFromEvent(int eventId, string userId, IEmailSender emailSender);
     }
 

@@ -12,6 +12,7 @@ namespace NemetschekEventManagerBackend.Models.DTOs
         public string? Location { get; set; }
         public int? PeopleLimit { get; set; }
         public int? SpotsLeft { get; set; }
+        public bool UserSignedUp { get; set; }
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
     }

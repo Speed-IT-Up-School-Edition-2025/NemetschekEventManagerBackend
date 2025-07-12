@@ -37,17 +37,17 @@ namespace NemetschekEventManagerBackend.Interfaces
 
         public async Task SendEventDeletionEmail(string userEmail, string userName, string eventName, DateTime eventDate)
         {
-            string subject = $"Event Cancelled: {eventName}";
+            string subject = $"Събитието е отменено: {eventName}";
 
             string htmlMessage = $@"
-        <html>
-            <body>
-                <p>Dear {userName},</p>
-                <p>We regret to inform you that the event <strong>{eventName}</strong> scheduled for {eventDate:MMMM d, yyyy} has been cancelled.</p>
-                <p>As a result, your submission for this event has been <strong>permanently deleted</strong>.</p>
-                <p>If you have any questions, please contact an administrator .</p>
-            </body>
-        </html>";
+            <html>
+                <body>
+                    <p>Уважаеми/а {userName},</p>
+                    <p>Съжаляваме да ви информираме, че събитието <strong>{eventName}</strong>, насрочено за {eventDate:MMMM d, yyyy}, е отменено.</p>
+                    <p>В резултат на това вашето участие в това събитие е <strong>окончателно изтрито</strong>.</p>
+                    <p>Ако имате въпроси, моля свържете се с администратор.</p>
+                </body>
+            </html>";
 
             await SendEmailAsync(userEmail, subject, htmlMessage);
         }
