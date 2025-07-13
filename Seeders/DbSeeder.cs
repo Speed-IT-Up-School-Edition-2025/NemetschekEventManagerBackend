@@ -450,7 +450,7 @@ namespace NemetschekEventManagerBackend.Seeders
                         new Field
                         {
                             Id = 1,
-                            Type = "radio",
+                            Type = "checkbox",
                             Name = "Интересуваща тема",
                             Required = true,
                             Options = new List<string>
