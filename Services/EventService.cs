@@ -23,6 +23,9 @@ public class EventService : IEventService
 
     public Event? GetEventById(int eventId)
     {
+        if(!_context.Events.Any(e => e.Id == eventId))
+            return null;
+
         return _context.Events.Find(eventId);
     }
 

@@ -123,6 +123,10 @@ namespace NemetschekEventManagerBackend.Extensions
                     return Results.Unauthorized();
 
                 var ev = service.GetEventById(id, userId);
+
+                if(ev == null)
+                    return Results.BadRequest(new { error = "Събитието не беше намерено." });
+
                 return Results.Ok(ev);
             })
                 .WithSummary("Get event by ID")
