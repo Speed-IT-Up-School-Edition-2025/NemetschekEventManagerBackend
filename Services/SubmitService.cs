@@ -45,11 +45,14 @@ public class SubmitService : ISubmitService
 
     public IResult UpdateSubmission(int eventId, string userId, UpdateSubmitDto dto)
     {
-        var submit = GetSubmitByEventAndUser(eventId, userId);
+        var submit = _context.Submits
+            .Include(s => s.Event)
+            .FirstOrDefault(s => s.EventId == eventId && s.UserId == userId);
+
         if (submit == null)
             return Results.BadRequest(new { error = "Не е намерена заявка"});
 
-        if (_context.Events.Find(eventId).SignUpDeadline < DateTime.UtcNow)
+        if (submit.Event.SignUpDeadline < DateTime.UtcNow)
             return Results.BadRequest(new { error = "Срокът за записване е изтекъл!" });
 
         SubmitMapper.UpdateEntity(submit, dto);
