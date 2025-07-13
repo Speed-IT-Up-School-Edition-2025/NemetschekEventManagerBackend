@@ -152,9 +152,9 @@ namespace NemetschekEventManagerBackend.Extensions
 
             app.MapPut("/events/{id}",
             [Authorize(Roles = "Administrator")]
-            (IEventService service, int id, UpdateEventDto dto) =>
+            async (IEventService service, int id, UpdateEventDto dto, IEmailSender emailSender) =>
             {
-                var success = service.Update(id, dto);
+                var success = await service.Update(id, dto, emailSender);
                 return success ? Results.Ok() : Results.BadRequest();
             })
             .WithSummary("Update event by ID")

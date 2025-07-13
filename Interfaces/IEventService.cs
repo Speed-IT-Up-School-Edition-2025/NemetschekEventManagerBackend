@@ -12,7 +12,7 @@ namespace NemetschekEventManagerBackend
             List<EventSummaryDto> GetEvents(DateTime? fromDate, DateTime? toDate, bool? activeOnly, string userId, bool alphabetical = false, bool sortDescending = false);
             List<EventSummaryDto> GetJoinedEvents(DateTime? fromDate, DateTime? toDate, bool? activeOnly, string userId, bool alphabetical = false, bool sortDescending = false);
             Task<bool> RemoveById(int eventId, IEmailSender _emailSender);
-            bool Update(int eventId, UpdateEventDto dto);
+            Task<bool> Update(int eventId, UpdateEventDto dto, IEmailSender _emailSender);
             bool Exists(int eventId);
     }
 }

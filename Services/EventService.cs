@@ -210,21 +210,20 @@ public class EventService : IEventService
                 ? email.Substring(0, email.IndexOf('@'))
                 : "User";
 
-            // Use the Send method instead of SendEmailAsync
             await _emailSender.SendEmailAsync(
-                email: email,
-                subject: $"Event Cancelled: {ev.Name}",
-                htmlMessage: $@"
-                    <html>
-                        <body>
-                            <p>Dear {userName},</p>
-                            <p>We regret to inform you that the event <strong>{ev.Name}</strong> scheduled for {ev.Date:MMMM d, yyyy} has been cancelled.</p>
-                            <p>As a result, your submission for this event has been <strong>permanently deleted</strong>.</p>
-                            <p>If you have any questions, please contact an administrator.</p>
-                            <p>Sincerely,<br>Event Management Team</p>
-                        </body>
-                    </html>"
-            );
+            email: email,
+            subject: $"Отменено събитие: {ev.Name}",
+            htmlMessage: $@"
+                <html>
+                    <body>
+                        <p>Здравейте, {userName},</p>
+                        <p>Съжаляваме да Ви уведомим, че събитието <strong>{ev.Name}</strong>, планирано за {ev.Date:dd.MM.yyyy}, беше отменено.</p>
+                        <p>Поради това Вашата регистрация за събитието беше <strong>изтрита</strong>.</p>
+                        <p>Ако имате въпроси, моля свържете се с администратор.</p>
+                        <p>С уважение,<br>Екипът по управление на събития</p>
+                    </body>
+                </html>"
+        );
         }
 
         // Remove the event
@@ -232,16 +231,55 @@ public class EventService : IEventService
         return await _context.SaveChangesAsync() != 0;
     }
 
-    public bool Update(int eventId, UpdateEventDto dto)
+    public async Task<bool> Update(int eventId, UpdateEventDto dto, IEmailSender _emailSender)
     {
-        var ev = GetEventById(eventId);
-        if (ev == null) return false;
+        // Load the event with submissions and users (only if needed)
+        var ev = await _context.Events
+            .Include(e => e.Submissions)
+            .ThenInclude(s => s.User)
+            .FirstOrDefaultAsync(e => e.Id == eventId);
 
+        if (ev == null)
+            return false;
+
+        if (ev.Submissions != null && ev.Submissions.Any())
+        {
+            // Send emails before removing submissions
+            foreach (var submission in ev.Submissions)
+            {
+                var user = submission.User;
+                if (user == null || string.IsNullOrWhiteSpace(user.Email))
+                    continue;
+
+                var email = user.Email;
+                var userName = email.Split('@')[0];
+
+                await _emailSender.SendEmailAsync(
+                    email: email,
+                    subject: $"Обновено събитие: {ev.Name}",
+                    htmlMessage: $@"
+                    <html>
+                        <body>
+                            <p>Здравейте, {userName},</p>
+                            <p>Искаме да Ви уведомим, че събитието <strong>{ev.Name}</strong>, планирано за {ev.Date:dd.MM.yyyy}, беше <strong>обновено</strong>.</p>
+                            <p>Поради направените промени, Вашата предишна регистрация беше <strong>изтрита</strong>. Моля, регистрирайте се отново, ако желаете да участвате.</p>
+                            <p>Ако имате въпроси, не се колебайте да се свържете с администратор.</p>
+                            <p>С уважение,<br>Екипът по управление на събития</p>
+                        </body>
+                    </html>");
+            }
+
+            // Remove submissions after notifying users
+            _context.Submits.RemoveRange(ev.Submissions);
+        }
+
+        // Update event properties from DTO
         EventMapper.UpdateEntity(ev, dto);
-
         _context.Events.Update(ev);
-        return _context.SaveChanges() != 0;
+
+        return await _context.SaveChangesAsync() > 0;
     }
+
     public bool Exists(int eventId)
     {
         return _context.Events.Any(e => e.Id == eventId);
