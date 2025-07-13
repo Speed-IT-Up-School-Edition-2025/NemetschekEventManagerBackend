@@ -191,52 +191,8 @@ public class EventService : IEventService
         return (firstChar >= 'A' && firstChar <= 'Z') || (firstChar >= 'a' && firstChar <= 'z');
     }
 
-    public async Task<bool> RemoveById(int eventId, IEmailSender _emailSender)
+    public async Task<bool> RemoveById(int eventId, IEmailSender emailSender)
     {
-        var ev = await _context.Events
-            .Include(e => e.Submissions!)  // Add null-forgiving operator here
-            .ThenInclude(s => s!.User)     // Add null-forgiving operator here too
-            .FirstOrDefaultAsync(e => e.Id == eventId);
-
-        if (ev == null)
-            return false;
-
-        // Send notifications to all users who submitted to this event
-        foreach (var submission in ev.Submissions!)
-        {
-            if (submission.User == null || string.IsNullOrEmpty(submission.User.Email))
-                continue;
-
-            // Extract username from email (everything before '@')
-            var email = submission.User.Email;
-            var userName = email.Contains('@')
-                ? email.Substring(0, email.IndexOf('@'))
-                : "User";
-
-            await _emailSender.SendEmailAsync(
-            email: email,
-            subject: $"Отменено събитие: {ev.Name}",
-            htmlMessage: $@"
-                <html>
-                    <body>
-                        <p>Здравейте, {userName},</p>
-                        <p>Съжаляваме да Ви уведомим, че събитието <strong>{ev.Name}</strong>, планирано за {ev.Date:dd.MM.yyyy}, беше отменено.</p>
-                        <p>Поради това Вашата регистрация за събитието беше <strong>изтрита</strong>.</p>
-                        <p>Ако имате въпроси, моля свържете се с администратор.</p>
-                        <p>С уважение,<br>Екипът по управление на събития</p>
-                    </body>
-                </html>"
-        );
-        }
-
-        // Remove the event
-        _context.Events.Remove(ev);
-        return await _context.SaveChangesAsync() != 0;
-    }
-
-    public async Task<bool> Update(int eventId, UpdateEventDto dto, IEmailSender _emailSender)
-    {
-        // Load the event with submissions and users (only if needed)
         var ev = await _context.Events
             .Include(e => e.Submissions)
             .ThenInclude(s => s.User)
@@ -245,22 +201,65 @@ public class EventService : IEventService
         if (ev == null)
             return false;
 
-        if (ev.Submissions != null && ev.Submissions.Any())
-        {
-            // Send emails before removing submissions
-            foreach (var submission in ev.Submissions)
-            {
-                var user = submission.User;
-                if (user == null || string.IsNullOrWhiteSpace(user.Email))
-                    continue;
+        var validUsers = ev.Submissions?
+            .Where(s => !string.IsNullOrWhiteSpace(s.User?.Email))
+            .Select(s => s.User!)
+            .Distinct(); // In case multiple submissions from same user
 
-                var email = user.Email;
+        if (validUsers != null)
+        {
+            foreach (var user in validUsers)
+            {
+                var email = user.Email!;
                 var userName = email.Split('@')[0];
 
-                await _emailSender.SendEmailAsync(
-                    email: email,
-                    subject: $"Обновено събитие: {ev.Name}",
-                    htmlMessage: $@"
+                await emailSender.SendEmailAsync(
+                    email,
+                    $"Отменено събитие: {ev.Name}",
+                    $@"
+                    <html>
+                        <body>
+                            <p>Здравейте, {userName},</p>
+                            <p>Съжаляваме да Ви уведомим, че събитието <strong>{ev.Name}</strong>, планирано за {ev.Date:dd.MM.yyyy}, беше отменено.</p>
+                            <p>Поради това Вашата регистрация за събитието беше <strong>изтрита</strong>.</p>
+                            <p>Ако имате въпроси, моля свържете се с администратор.</p>
+                            <p>С уважение,<br>Екипът по управление на събития</p>
+                        </body>
+                    </html>");
+            }
+        }
+
+        _context.Events.Remove(ev);
+        return await _context.SaveChangesAsync() > 0;
+    }
+
+
+    public async Task<bool> Update(int eventId, UpdateEventDto dto, IEmailSender emailSender)
+    {
+        var ev = await _context.Events
+            .Include(e => e.Submissions)
+            .ThenInclude(s => s.User)
+            .FirstOrDefaultAsync(e => e.Id == eventId);
+
+        if (ev == null)
+            return false;
+
+        var validUsers = ev.Submissions?
+            .Where(s => !string.IsNullOrWhiteSpace(s.User?.Email))
+            .Select(s => s.User!)
+            .Distinct();
+
+        if (validUsers != null)
+        {
+            foreach (var user in validUsers)
+            {
+                var email = user.Email!;
+                var userName = email.Split('@')[0];
+
+                await emailSender.SendEmailAsync(
+                    email,
+                    $"Обновено събитие: {ev.Name}",
+                    $@"
                     <html>
                         <body>
                             <p>Здравейте, {userName},</p>
@@ -271,12 +270,9 @@ public class EventService : IEventService
                         </body>
                     </html>");
             }
-
-            // Remove submissions after notifying users
             _context.Submits.RemoveRange(ev.Submissions);
         }
 
-        // Update event properties from DTO
         EventMapper.UpdateEntity(ev, dto);
         _context.Events.Update(ev);
 
