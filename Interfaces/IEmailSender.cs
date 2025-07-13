@@ -1,10 +1,6 @@
 ﻿using MailKit.Net.Smtp;
 using MimeKit;
 using Microsoft.AspNetCore.Identity.UI.Services;
-using System.Threading.Tasks;
-using System;
-using NemetschekEventManagerBackend.Models;
-using NemetschekEventManagerBackend;
 
 namespace NemetschekEventManagerBackend.Interfaces
 {

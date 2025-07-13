@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using NemetschekEventManagerBackend.Models;
-using System;
 
 namespace NemetschekEventManagerBackend.Seeders
 {

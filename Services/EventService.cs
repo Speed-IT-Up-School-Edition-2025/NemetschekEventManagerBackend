@@ -3,9 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using NemetschekEventManagerBackend;
 using NemetschekEventManagerBackend.Models;
 using NemetschekEventManagerBackend.Models.DTOs;
-using NemetschekEventManagerBackend.Models.JSON;
-using NemetschekEventManagerBackend.Interfaces;
-using System.Threading.Tasks;
 using System.Globalization;
 
 public class EventService : IEventService
