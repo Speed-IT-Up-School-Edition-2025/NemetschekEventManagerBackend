@@ -44,6 +44,7 @@ namespace NemetschekEventManagerBackend.Models.DTOs
                 // Example: replace all fields with the new list
                 ev.Fields = dto.Fields.Select(f => new Field
                 {
+                    Id = f.Id,
                     Type = f.Type,
                     Name = f.Name,
                     Options = f.Options,
