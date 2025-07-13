@@ -20,6 +20,7 @@ namespace NemetschekEventManagerBackend.Models.DTOs
                 UpdatedAt = DateTime.UtcNow,
                 Fields = dto.Fields?.Select(f => new Field
                 {
+                    Id = f.Id,
                     Type = f.Type,
                     Name = f.Name,
                     Options = f.Options,
