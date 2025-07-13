@@ -38,15 +38,78 @@ public class EventService : IEventService
             .ToList();
     }
 
-    public List<EventSummaryDto> GetJoinedEvents(string userId)
+    public List<EventSummaryDto> GetJoinedEvents(DateTime? fromDate, DateTime? toDate, bool? activeOnly, string userId, bool alphabetical = false, bool sortDescending = false)
     {
-        return _context.Submits
+        List<Event> events = _context.Submits
             .Include(s => s.Event)
             .ThenInclude(e => e.Submissions)
             .Where(s => s.UserId == userId && s.Event != null)
             .Select(s => s.Event!)
-            .Select(e => e.ToSummaryDto(userId))
             .ToList();
+
+        // Apply filters
+        if (fromDate.HasValue)
+        {
+            var from = fromDate.Value.Date;
+            events = events.Where(e => e.Date.HasValue && e.Date.Value.Date >= from).ToList();
+        }
+
+        if (toDate.HasValue)
+        {
+            var to = toDate.Value.Date;
+            events = events.Where(e => e.Date.HasValue && e.Date.Value.Date <= to).ToList();
+        }
+
+        if (activeOnly == true)
+        {
+            var now = DateTime.UtcNow;
+            events = events.Where(e => e.SignUpDeadline.HasValue && e.SignUpDeadline.Value > now).ToList();
+        }
+
+        // Determine whether to apply the custom sort
+        bool filtersApplied = fromDate.HasValue || toDate.HasValue || activeOnly == true;
+        var nowTime = DateTime.UtcNow;
+
+        // Sorting
+        if (!filtersApplied)
+        {
+            // Apply default sort: active w/ spots → active full → inactive
+            events = events
+                .OrderBy(e =>
+                {
+                    bool isActive = e.SignUpDeadline.HasValue && e.SignUpDeadline.Value > nowTime;
+                    bool hasSpots = e.PeopleLimit == null || e.Submissions.Count < e.PeopleLimit;
+                    return isActive ? (hasSpots ? 0 : 1) : 2;
+                })
+                .ThenBy(e => alphabetical ? (IsEnglish(e.Name) ? 0 : 1) : 0)
+                .ThenBy(e => alphabetical ? e.Name : null)
+                .ThenBy(e => !alphabetical ? e.Date : null)
+                .ToList();
+        }
+        else
+        {
+            // Skip custom status-based sort when filters are applied
+            if (alphabetical)
+            {
+                events = events
+                    .OrderBy(e => IsEnglish(e.Name) ? 0 : 1)
+                    .ThenBy(e => e.Name, StringComparer.Create(new CultureInfo("bg-BG"), ignoreCase: true))
+                    .ToList();
+            }
+            else
+            {
+                events = events
+                    .OrderBy(e => e.Date)
+                    .ToList();
+            }
+        }
+
+        if (sortDescending)
+        {
+            events.Reverse();
+        }
+
+        return events.Select(e => e.ToSummaryDto(userId)).ToList();
     }
 
     public List<EventSummaryDto> GetEvents(DateTime? fromDate, DateTime? toDate, bool? activeOnly, string userId, bool alphabetical = false, bool sortDescending = false)

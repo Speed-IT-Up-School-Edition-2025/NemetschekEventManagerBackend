@@ -10,7 +10,7 @@ namespace NemetschekEventManagerBackend
             Event? GetEventById(int eventId);
             EventDetailsDto? GetEventById(int eventId, string userId);
             List<EventSummaryDto> GetEvents(DateTime? fromDate, DateTime? toDate, bool? activeOnly, string userId, bool alphabetical = false, bool sortDescending = false);
-            List<EventSummaryDto> GetJoinedEvents(string userId);
+            List<EventSummaryDto> GetJoinedEvents(DateTime? fromDate, DateTime? toDate, bool? activeOnly, string userId, bool alphabetical = false, bool sortDescending = false);
             Task<bool> RemoveById(int eventId, IEmailSender _emailSender);
             bool Update(int eventId, UpdateEventDto dto);
             bool Exists(int eventId);

@@ -92,13 +92,22 @@ namespace NemetschekEventManagerBackend.Extensions
             //Get users events
             app.MapGet("/events/joined",
             [Authorize]
-            (HttpContext http, IEventService service, ClaimsPrincipal user) =>
+            (
+                IEventService service,
+                HttpContext http,
+                ClaimsPrincipal user,
+                DateTime? fromDate,
+                DateTime? toDate,
+                bool? activeOnly,
+                bool alphabetical = false,
+                bool sortDescending = false
+            ) =>
             {
                 var userId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub");
                 if (string.IsNullOrEmpty(userId))
                     return Results.Unauthorized();
                 
-                var events = service.GetJoinedEvents(userId);
+                var events = service.GetJoinedEvents(fromDate, toDate, activeOnly, userId, alphabetical, sortDescending);
                 return Results.Ok(events);
             })
             .WithSummary("Get joined events for current user")
