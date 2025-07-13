@@ -246,7 +246,7 @@ namespace NemetschekEventManagerBackend.Seeders
                         new Field
                         {
                             Id = 2,
-                            Type = "checkbox",
+                            Type = "radio",
                             Name = "Желаете ли транспорт от София?",
                             Required = false,
                             Options = new List<string> { "Да", "Не" }
@@ -254,7 +254,7 @@ namespace NemetschekEventManagerBackend.Seeders
                         new Field
                         {
                             Id = 3,
-                            Type = "checkbox",
+                            Type = "radio",
                             Name = "Ще участвате ли в игрите?",
                             Required = false,
                             Options = new List<string> { "Да", "Не" }
@@ -289,7 +289,7 @@ namespace NemetschekEventManagerBackend.Seeders
                         new Field
                         {
                             Id = 2,
-                            Type = "checkbox",
+                            Type = "radio",
                             Name = "Желаете ли да получите сертификат?",
                             Required = false,
                             Options = new List<string> { "Да", "Не" }
@@ -319,7 +319,7 @@ namespace NemetschekEventManagerBackend.Seeders
                         new Field
                         {
                             Id = 2,
-                            Type = "checkbox",
+                            Type = "radio",
                             Name = "Имате ли екип?",
                             Required = false,
                             Options = new List<string> { "Да", "Не" }
@@ -349,7 +349,7 @@ namespace NemetschekEventManagerBackend.Seeders
                         new Field
                         {
                             Id = 1,
-                            Type = "checkbox",
+                            Type = "radio",
                             Name = "Нужда от транспорт",
                             Required = false,
                             Options = new List<string> { "Да", "Не" }
@@ -406,7 +406,7 @@ namespace NemetschekEventManagerBackend.Seeders
                         new Field
                         {
                             Id = 1,
-                            Type = "checkbox",
+                            Type = "radio",
                             Name = "Имате ли собствен лаптоп?",
                             Required = true,
                             Options = new List<string> { "Да", "Не" }
@@ -477,7 +477,7 @@ namespace NemetschekEventManagerBackend.Seeders
                         new Field
                         {
                             Id = 1,
-                            Type = "checkbox",
+                            Type = "radio",
                             Name = "Желаете ли да участвате в йога?",
                             Required = false,
                             Options = new List<string> { "Да", "Не" }
@@ -485,7 +485,7 @@ namespace NemetschekEventManagerBackend.Seeders
                         new Field
                         {
                             Id = 2,
-                            Type = "checkbox",
+                            Type = "radio",
                             Name = "Имате ли хранителни ограничения?",
                             Required = false,
                             Options = new List<string> { "Да", "Не" }
