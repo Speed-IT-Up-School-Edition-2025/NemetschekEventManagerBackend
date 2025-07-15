@@ -20,6 +20,7 @@ namespace NemetschekEventManagerBackend.Models.DTOs
                 UpdatedAt = DateTime.UtcNow,
                 Fields = dto.Fields?.Select(f => new Field
                 {
+                    Id = f.Id,
                     Type = f.Type,
                     Name = f.Name,
                     Options = f.Options,
@@ -43,6 +44,7 @@ namespace NemetschekEventManagerBackend.Models.DTOs
                 // Example: replace all fields with the new list
                 ev.Fields = dto.Fields.Select(f => new Field
                 {
+                    Id = f.Id,
                     Type = f.Type,
                     Name = f.Name,
                     Options = f.Options,
@@ -52,7 +54,7 @@ namespace NemetschekEventManagerBackend.Models.DTOs
 
             ev.UpdatedAt = DateTime.UtcNow;
         }
-        public static EventSummaryDto ToSummaryDto(this Event ev)
+        public static EventSummaryDto ToSummaryDto(this Event ev, string userId)
         {
             return new EventSummaryDto
             {
@@ -64,6 +66,7 @@ namespace NemetschekEventManagerBackend.Models.DTOs
                 Location = ev.Location,
                 PeopleLimit = ev.PeopleLimit,
                 SpotsLeft = ev.PeopleLimit - ev.Submissions!.Count(),
+                UserSignedUp = ev.Submissions!.Where(s => s.UserId == userId).Any(),
                 CreatedAt = ev.CreatedAt,
                 UpdatedAt = ev.UpdatedAt
             };

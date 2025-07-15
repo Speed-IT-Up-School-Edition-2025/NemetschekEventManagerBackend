@@ -1,6 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-
-namespace NemetschekEventManagerBackend.Models.JSON
+﻿namespace NemetschekEventManagerBackend.Models.JSON
 {
     public class Submission
     {

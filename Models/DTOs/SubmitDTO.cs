@@ -1,5 +1,4 @@
 ﻿using NemetschekEventManagerBackend.Models.JSON;
-using System.ComponentModel.DataAnnotations;
 
 namespace NemetschekEventManagerBackend.Models.DTOs
 {

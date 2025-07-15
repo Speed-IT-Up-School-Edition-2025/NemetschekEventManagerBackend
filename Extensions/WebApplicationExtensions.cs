@@ -1,5 +1,4 @@
 ﻿using ClosedXML.Excel;
-using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
@@ -74,6 +73,8 @@ namespace NemetschekEventManagerBackend.Extensions
             [Authorize]
             (
                 IEventService service,
+                HttpContext http,
+                ClaimsPrincipal user,
                 DateTime? fromDate,
                 DateTime? toDate,
                 bool? activeOnly,
@@ -81,7 +82,9 @@ namespace NemetschekEventManagerBackend.Extensions
                 bool sortDescending = false
             ) =>
             {
-                return service.GetEvents(fromDate, toDate, activeOnly, alphabetical, sortDescending);
+                var userId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub");
+
+                return service.GetEvents(fromDate, toDate, activeOnly, userId, alphabetical, sortDescending);
             })
             .WithSummary("Search for events")
             .WithDescription("Fetches events with optional filters: date range, activity status, and sorting options.");
@@ -89,13 +92,22 @@ namespace NemetschekEventManagerBackend.Extensions
             //Get users events
             app.MapGet("/events/joined",
             [Authorize]
-            (HttpContext http, IEventService service, ClaimsPrincipal user) =>
+            (
+                IEventService service,
+                HttpContext http,
+                ClaimsPrincipal user,
+                DateTime? fromDate,
+                DateTime? toDate,
+                bool? activeOnly,
+                bool alphabetical = false,
+                bool sortDescending = false
+            ) =>
             {
                 var userId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub");
                 if (string.IsNullOrEmpty(userId))
                     return Results.Unauthorized();
                 
-                var events = service.GetJoinedEvents(userId);
+                var events = service.GetJoinedEvents(fromDate, toDate, activeOnly, userId, alphabetical, sortDescending);
                 return Results.Ok(events);
             })
             .WithSummary("Get joined events for current user")
@@ -111,6 +123,10 @@ namespace NemetschekEventManagerBackend.Extensions
                     return Results.Unauthorized();
 
                 var ev = service.GetEventById(id, userId);
+
+                if(ev == null)
+                    return Results.BadRequest(new { error = "Събитието не беше намерено." });
+
                 return Results.Ok(ev);
             })
                 .WithSummary("Get event by ID")
@@ -140,9 +156,9 @@ namespace NemetschekEventManagerBackend.Extensions
 
             app.MapPut("/events/{id}",
             [Authorize(Roles = "Administrator")]
-            (IEventService service, int id, UpdateEventDto dto) =>
+            async (IEventService service, int id, UpdateEventDto dto, IEmailSender emailSender) =>
             {
-                var success = service.Update(id, dto);
+                var success = await service.Update(id, dto, emailSender);
                 return success ? Results.Ok() : Results.BadRequest();
             })
             .WithSummary("Update event by ID")
@@ -226,7 +242,7 @@ namespace NemetschekEventManagerBackend.Extensions
                    return Results.Unauthorized();
 
                var success = await service.RemoveUserFromEvent(eventId, userId, emailSender);
-                return success ? Results.Ok() : Results.NotFound();
+               return success;
             })
             .WithSummary("Removes authenticated user from event")
             .WithDescription("Allows user to remove himself from an event and notifies the user by email.");
